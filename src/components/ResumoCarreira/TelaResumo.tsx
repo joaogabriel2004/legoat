@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira } from '@/src/types/basquete';
+import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira, FocoTreino } from '@/src/types/basquete';
 import { BANCO_DE_CLUBES } from '@/src/data/clubes';
-import { determinarFuncaoElenco } from '@/src/utils/simulador';
+import { determinarFuncaoElenco, calcularHallDaFama } from '@/src/utils/simulador';
 
 interface Props {
   atleta: Atleta;
@@ -19,6 +19,7 @@ interface Props {
   onAvancarTemporada: () => void;
   onSelecionarClube: (clube: string) => void;
   onReset: () => void;
+  onMudarFocoTreino?: (foco: FocoTreino) => void;
 }
 
 const CORES = {
@@ -33,10 +34,11 @@ const CORES = {
 
 export default function TelaResumo({
   atleta, idadeAtual, clubeAtual, ovrAtual, quimica, confianca, valorMercado, historico, totais,
-  faseSub, eventoAtivo, ofertasTransferencia, onAvancarTemporada, onSelecionarClube, onReset
+  faseSub, eventoAtivo, ofertasTransferencia, onAvancarTemporada, onSelecionarClube, onReset, onMudarFocoTreino
 }: Props) {
-  const [modoExibicao, setModoExibicao] = useState<'medias' | 'totais' | 'imprensa'>('medias');
+  const [modoExibicao, setModoExibicao] = useState<'medias' | 'totais' | 'imprensa' | 'conquistas'>('medias');
   const [temporadaDetalhada, setTemporadaDetalhada] = useState<TemporadaHistorico | null>(null);
+  const [focoTreinoSelecao, setFocoTreinoSelecao] = useState<FocoTreino>(atleta.focoTreinoAtual || 'equilibrado');
 
   const idadesCarreira = Array.from({ length: 24 }, (_, i) => 16 + i);
 
@@ -47,6 +49,17 @@ export default function TelaResumo({
   const ligaAtual = clubeAtualObj ? clubeAtualObj.liga : 'NBB';
 
   const percepcaoMidiaAtual = ultimaTemporada?.noticiaImprensa?.percepcaoMercado || '📈 Promessa em Formação';
+
+  const relatorioHof = faseSub === 'aposentado' ? calcularHallDaFama(historico, totais) : null;
+
+  // Compilar todas as conquistas e premiações da carreira
+  const todasPremiacoes = historico.flatMap(h => h.premiacoesIndividuais.map(p => ({ ano: h.idade, clube: h.clube, premio: p })));
+  const todasSelecoes = historico.filter(h => h.torneioSelecao).map(h => ({ ano: h.idade, torneio: h.torneioSelecao?.nomeTorneio, posicao: h.torneioSelecao?.posicaoFinal }));
+
+  const handleTreinoChange = (novoFoco: FocoTreino) => {
+    setFocoTreinoSelecao(novoFoco);
+    if (onMudarFocoTreino) onMudarFocoTreino(novoFoco);
+  };
 
   return (
     <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1, minHeight: 0, position: 'relative' }}>
@@ -68,22 +81,22 @@ export default function TelaResumo({
               <button onClick={() => setTemporadaDetalhada(null)} style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, color: '#fff', width: '32px', height: '32px', borderRadius: '50%', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
             </div>
 
-            {/* NOTÍCIA DA ÉPOCA */}
-            {temporadaDetalhada.noticiaImprensa && (
-              <div style={{ background: CORES.bgInput, borderLeft: `4px solid ${CORES.destaque}`, padding: '0.85rem', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.65rem', color: CORES.textoSecundario, fontWeight: 'bold' }}>
-                  📰 {temporadaDetalhada.noticiaImprensa.veiculo}
-                </span>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  "{temporadaDetalhada.noticiaImprensa.manchete}"
-                </p>
+            {/* DESTAQUE SELEÇÃO NACIONAL */}
+            {temporadaDetalhada.torneioSelecao && (
+              <div style={{ background: '#1c1917', border: `1px solid #f59e0b`, padding: '0.75rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ fontSize: '0.65rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>🇧🇷 Convocação Internacional</span>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fff' }}>{temporadaDetalhada.torneioSelecao.nomeTorneio}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '900', color: '#34d399' }}>{temporadaDetalhada.torneioSelecao.posicaoFinal}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>{temporadaDetalhada.torneioSelecao.ppgSelecao} PPG na Seleção</div>
+                </div>
               </div>
             )}
 
             {/* TABELA REGULAR vs PLAYOFFS */}
             <div style={{ display: 'grid', gridTemplateColumns: temporadaDetalhada.playoffs ? '1fr 1fr' : '1fr', gap: '1rem' }}>
-              
-              {/* FASE REGULAR */}
               <div style={{ background: CORES.bgInput, padding: '1rem', borderRadius: '10px', border: `1px solid ${CORES.borda}` }}>
                 <h4 style={{ fontSize: '0.8rem', color: CORES.destaque, margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>🏀 Época Regular</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
@@ -94,7 +107,6 @@ export default function TelaResumo({
                 </div>
               </div>
 
-              {/* PLAYOFFS */}
               {temporadaDetalhada.playoffs && (
                 <div style={{ background: CORES.bgInput, padding: '1rem', borderRadius: '10px', border: `1px solid #fbbf24` }}>
                   <h4 style={{ fontSize: '0.8rem', color: '#fbbf24', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>🏆 Playoffs</h4>
@@ -107,22 +119,7 @@ export default function TelaResumo({
                   </div>
                 </div>
               )}
-
             </div>
-
-            {/* PREMIAÇÕES DA ÉPOCA */}
-            {temporadaDetalhada.premiacoesIndividuais.length > 0 && (
-              <div>
-                <span style={{ fontSize: '0.7rem', color: CORES.textoSecundario, textTransform: 'uppercase', fontWeight: 'bold' }}>Conquistas do Ano:</span>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
-                  {temporadaDetalhada.premiacoesIndividuais.map((p, i) => (
-                    <span key={i} style={{ background: '#1e293b', color: '#fbbf24', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <button onClick={() => setTemporadaDetalhada(null)} style={{ background: CORES.destaque, color: '#070908', fontWeight: 'bold', padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>
               Fechar Detalhes
@@ -169,17 +166,41 @@ export default function TelaResumo({
               </div>
             </div>
 
-            {/* SEÇÃO DA IMPRENSA DINÂMICA */}
-            <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.65rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.68rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase' }}>
-                📰 Percepção da Mídia:
-              </span>
-              <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#fbbf24' }}>
-                {percepcaoMidiaAtual}
-              </span>
-            </div>
+            {/* SELETOR DE FOCO DE TREINO NA OFF-SEASON */}
+            {faseSub === 'carreira' && (
+              <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.75rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase', display: 'block', marginBottom: '0.4rem' }}>
+                  🎯 Foco de Treino da Próxima Época:
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.3rem' }}>
+                  {[
+                    { id: 'equilibrado', label: 'Geral ⚖️' },
+                    { id: 'arremesso', label: 'Arremesso 🎯' },
+                    { id: 'iq', label: 'Passe / QI 🧠' },
+                    { id: 'fisico', label: 'Físico 🏋️' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => handleTreinoChange(f.id as FocoTreino)}
+                      style={{
+                        background: focoTreinoSelecao === f.id ? CORES.destaque : 'transparent',
+                        color: focoTreinoSelecao === f.id ? '#070908' : '#cbd5e1',
+                        border: `1px solid ${focoTreinoSelecao === f.id ? CORES.destaque : CORES.borda}`,
+                        borderRadius: '6px',
+                        padding: '0.3rem 0.2rem',
+                        fontSize: '0.62rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            {/* BARRAS DE QUÍMICA E CONFIANÇA */}
+            {/* BARRA DE QUÍMICA E CONFIANÇA */}
             <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                 <span style={{ fontSize: '0.68rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase' }}>
@@ -230,19 +251,22 @@ export default function TelaResumo({
             )}
           </div>
 
-          {/* PAINÉIS DE EVENTO, TRANSFERÊNCIA E APOSENTADORIA */}
-          {faseSub === 'aposentado' && (
-            <div style={{ background: CORES.bgCard, border: `2px solid #fbbf24`, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', flexShrink: 0 }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '900', color: '#fbbf24', marginBottom: '0.4rem' }}>🏅 Fim de Carreira</h3>
-              <p style={{ color: '#cbd5e1', fontSize: '0.8rem', lineHeight: '1.4', marginBottom: '1rem' }}>
-                O atleta encerrou a sua carreira profissional nas quadras.
-              </p>
+          {/* PAINEL HALL DA FAMA (FIM DE CARREIRA) */}
+          {faseSub === 'aposentado' && relatorioHof && (
+            <div style={{ background: CORES.bgCard, border: `2px solid #fbbf24`, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <span style={{ fontSize: '0.7rem', color: '#fbbf24', fontWeight: 'bold', textTransform: 'uppercase' }}>🏛️ Relatório de Hall da Fama</span>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '900', color: '#fff', margin: 0 }}>{relatorioHof.tierLegado}</h3>
+              <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>{relatorioHof.descricaoLegado}</div>
+              <div style={{ background: CORES.bgInput, padding: '0.6rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', color: CORES.destaque }}>
+                Score de Legado: {relatorioHof.pontosLegado} PTS
+              </div>
               <button onClick={onReset} style={{ background: '#fbbf24', color: '#070908', fontWeight: 'bold', padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', width: '100%' }}>
                 Iniciar Nova Carreira 🚀
               </button>
             </div>
           )}
 
+          {/* PAINÉIS DE EVENTO E TRANSFERÊNCIA */}
           {faseSub === 'evento' && eventoAtivo && (
             <div style={{ background: CORES.bgCard, border: `2px solid ${CORES.destaque}`, borderRadius: '16px', padding: '1.25rem', flexShrink: 0 }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: '900', color: CORES.destaque, marginBottom: '0.25rem', textTransform: 'uppercase' }}>⚠️ {eventoAtivo.titulo}</h3>
@@ -313,12 +337,12 @@ export default function TelaResumo({
 
         </div>
 
-        {/* COLUNA DIREITA: LINHA DO TEMPO E DETALHAMENTO */}
+        {/* COLUNA DIREITA */}
         <div style={{ background: CORES.bgCard, border: `1px solid ${CORES.borda}`, borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexShrink: 0 }}>
             <h3 style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: CORES.textoSecundario, margin: 0 }}>
-              {modoExibicao === 'imprensa' ? '📰 Feed de Notícias' : 'Linha do Tempo da Carreira'}
+              {modoExibicao === 'imprensa' ? '📰 Feed de Notícias' : (modoExibicao === 'conquistas' ? '🏆 Vitrine de Conquistas' : 'Linha do Tempo da Carreira')}
             </h3>
             
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -340,6 +364,12 @@ export default function TelaResumo({
                   style={{ background: modoExibicao === 'imprensa' ? CORES.destaque : 'transparent', color: modoExibicao === 'imprensa' ? '#070908' : CORES.textoSecundario, border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 'bold', cursor: 'pointer' }}
                 >
                   📰 IMPRENSA
+                </button>
+                <button 
+                  onClick={() => setModoExibicao('conquistas')}
+                  style={{ background: modoExibicao === 'conquistas' ? CORES.destaque : 'transparent', color: modoExibicao === 'conquistas' ? '#070908' : CORES.textoSecundario, border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  🏆 PRÊMIOS
                 </button>
               </div>
 
@@ -368,6 +398,41 @@ export default function TelaResumo({
               ) : (
                 <p style={{ color: CORES.textoSecundario, fontSize: '0.8rem', textAlign: 'center', marginTop: '2rem' }}>Nenhuma notícia publicada ainda.</p>
               )
+            ) : modoExibicao === 'conquistas' ? (
+              // ABA DE VITRINE DE CONQUISTAS
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '1rem' }}>
+                  <h4 style={{ fontSize: '0.8rem', color: '#fbbf24', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>💍 Títulos e Prêmios Individuais</h4>
+                  {todasPremiacoes.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {todasPremiacoes.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#101313', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                          <span style={{ color: '#fff', fontWeight: 'bold' }}>{item.premio}</span>
+                          <span style={{ color: CORES.textoSecundario, fontSize: '0.72rem' }}>{item.clube} • {item.ano} anos</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: CORES.textoSecundario, fontSize: '0.78rem', margin: 0 }}>Nenhum título ou prêmio conquistado ainda.</p>
+                  )}
+                </div>
+
+                <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '1rem' }}>
+                  <h4 style={{ fontSize: '0.8rem', color: '#f59e0b', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>🇧🇷 Conquistas pela Seleção Nacional</h4>
+                  {todasSelecoes.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {todasSelecoes.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#101313', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                          <span style={{ color: '#fff', fontWeight: 'bold' }}>{item.torneio}</span>
+                          <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '0.75rem' }}>{item.posicao} ({item.ano}y)</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: CORES.textoSecundario, fontSize: '0.78rem', margin: 0 }}>Nenhuma convocação ou medalha pela seleção ainda.</p>
+                  )}
+                </div>
+              </div>
             ) : (
               idadesCarreira.map(idade => {
                 const temporadaAno = historico.find(t => t.idade === idade);
@@ -409,6 +474,11 @@ export default function TelaResumo({
                           </span>
                         )}
                       </div>
+                      {jaPassou && temporadaAno.torneioSelecao && (
+                        <span style={{ background: '#1c1917', color: '#f59e0b', border: '1px solid #f59e0b', padding: '0.1rem 0.3rem', borderRadius: '4px', fontSize: '0.58rem', fontWeight: 'bold' }}>
+                          🇧🇷 Seleção
+                        </span>
+                      )}
                       {jaPassou && temporadaAno.status && (
                         <span style={{ background: '#16261d', color: '#34d399', padding: '0.1rem 0.3rem', borderRadius: '4px', fontSize: '0.58rem', fontWeight: 'bold' }}>
                           {temporadaAno.status}
@@ -421,10 +491,11 @@ export default function TelaResumo({
                         <>
                           {modoExibicao === 'medias' ? (
                             <>
-                              <span>Over: <strong style={{ color: '#60a5fa' }}>{temporadaAno.ovr}</strong></span>
+                              <span>Ovr: <strong style={{ color: '#60a5fa' }}>{temporadaAno.ovr}</strong></span>
                               <span>MPG: <strong style={{ color: '#60a5fa' }}>{temporadaAno.mpg}</strong></span>
                               <span>PPG: <strong style={{ color: '#34d399' }}>{temporadaAno.ppg}</strong></span>
                               <span>APG: <strong style={{ color: '#fff' }}>{temporadaAno.apg}</strong></span>
+                              <span>RPG: <strong style={{ color: '#fff' }}>{temporadaAno.rpg}</strong></span>
                             </>
                           ) : (
                             <>
@@ -440,13 +511,11 @@ export default function TelaResumo({
                     </div>
                   </div>
                 );
-              }))}
+              })
+            )}
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }

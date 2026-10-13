@@ -1,3 +1,5 @@
+export type FocoTreino = 'arremesso' | 'iq' | 'fisico' | 'equilibrado';
+
 export interface Atleta {
   nome: string;
   numero: string;
@@ -6,6 +8,7 @@ export interface Atleta {
   posicao: string;
   mentalidade: string;
   potencialSecreto?: 'GeracaoUnica' | 'JogadorSolido' | 'RiscoFlop';
+  focoTreinoAtual?: FocoTreino;
 }
 
 export type FuncaoElenco = 
@@ -19,7 +22,7 @@ export interface NoticiaImprensa {
   manchete: string;
   veiculo: string;
   tipo: 'sucesso' | 'alerta' | 'crise' | 'neutro';
-  percepcaoMercado: string; // Ex: "Estrela do Ano", "Em Afirmação", "Sob Pressão"
+  percepcaoMercado: string;
 }
 
 export interface EstatisticasFase {
@@ -30,6 +33,20 @@ export interface EstatisticasFase {
   spg: number;
   tpm: number;
   tov: number;
+}
+
+export interface TorneioSelecao {
+  nomeTorneio: string; // Ex: "Jogos Olímpicos 🥇" ou "Copa do Mundo FIBA 🏀"
+  posicaoFinal: string; // Ex: "Medalha de Ouro 🥇", "Medalha de Prata 🥈", "Quarto Lugar"
+  ppgSelecao: number;
+}
+
+export interface RivalidadeData {
+  nomeRival: string;
+  ovrRival: number;
+  clubeRival: string;
+  vitoriasJogador: number;
+  vitoriasRival: number;
 }
 
 export interface TemporadaHistorico {
@@ -54,11 +71,17 @@ export interface TemporadaHistorico {
   titulos: number;
   status?: string;
   noticiaImprensa?: NoticiaImprensa;
-  
-  // Detalhamento por Fase
   faseRegular: EstatisticasFase;
   playoffs?: EstatisticasFase & { resultadoCampanha: string };
+  torneioSelecao?: TorneioSelecao;
   premiacoesIndividuais: string[];
+}
+
+export interface RelatorioHallDaFama {
+  pontosLegado: number;
+  tierLegado: 'Lenda Imortal (GOAT) 👑' | 'Membro do Hall da Fama 🏛️' | 'Ídolo de Franquia ⭐️' | 'Carreira Respeitada 📊' | 'Promessa Incompleta 📉';
+  descricaoLegado: string;
+  titulosSelecao: string[];
 }
 
 export interface EventoAleatorio {
@@ -76,4 +99,5 @@ export interface TotaisCarreira {
   jogosTotais: number;
   pontosTotais: number;
   assistenciasTotais: number;
+  medalhasSelecao?: number;
 }

@@ -85,7 +85,7 @@ export default function Home() {
         opcao1Texto: eventoSorteado.opcao1Texto,
         opcao2Texto: eventoSorteado.opcao2Texto,
         acaoOpcao1: () => {
-          const resultado = eventoSorteado.efeitoOpcao1(ovrAtual, quimica, confianca);
+          const resultado = eventoSorteado.efeitoOpcao1(novoOvr, quimica, confianca);
           setOvrAtual(resultado.novoOvr);
           setQuimica(resultado.novaQuimica);
           setConfianca(resultado.novaConfianca);
@@ -97,7 +97,7 @@ export default function Home() {
           fecharEventoEAbrirTransferencias();
         },
         acaoOpcao2: () => {
-          const resultado = eventoSorteado.efeitoOpcao2(ovrAtual, quimica, confianca);
+          const resultado = eventoSorteado.efeitoOpcao2(novoOvr, quimica, confianca);
           setOvrAtual(resultado.novoOvr);
           setQuimica(resultado.novaQuimica);
           setConfianca(resultado.novaConfianca);

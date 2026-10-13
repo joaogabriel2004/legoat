@@ -1,4 +1,4 @@
-import { Atleta, TemporadaHistorico, FuncaoElenco, NoticiaImprensa, EstatisticasFase } from '@/src/types/basquete';
+import { Atleta, TemporadaHistorico, FuncaoElenco, NoticiaImprensa, EstatisticasFase, TorneioSelecao, RivalidadeData, RelatorioHallDaFama, FocoTreino } from '@/src/types/basquete';
 import { BANCO_DE_CLUBES } from '@/src/data/clubes';
 import { BANCO_DE_EVENTOS, TemplateEvento } from '@/src/data/eventos';
 import { calcularJogosDaTemporada } from '@/src/data/ligas';
@@ -19,6 +19,78 @@ export function determinarFuncaoElenco(idade: number, ovr: number, confianca: nu
   if (ovr >= ovrMinimoEstrela && confianca >= 55) return 'Líder da Franquia 👑';
   if (ovr >= ovrMinimoTitular && confianca >= 45) return 'Sexto Homem ⚡';
   return 'Promessa 🐣';
+}
+
+/**
+ * Calcula a Eficiência Geral do Atleta (PER Simplificado)
+ * Pondera PPG, RPG, APG, SPG e TOV para avaliar impacto global em quadra.
+ */
+export function calcularIndiceEficiencia(
+  ppg: number,
+  rpg: number,
+  apg: number,
+  spg: number,
+  tov: number
+): number {
+  const per = ppg + (rpg * 1.2) + (apg * 1.4) + (spg * 2.0) - (tov * 1.2);
+  return Number(per.toFixed(1));
+}
+
+export function calcularHallDaFama(historico: TemporadaHistorico[], totais: any): RelatorioHallDaFama {
+  let pts = 0;
+  
+  pts += totais.titulos * 150;
+  pts += totais.mvps * 250;
+  pts += Math.floor(totais.pontosTotais / 100);
+  pts += Math.floor(totais.assistenciasTotais / 50);
+
+  const maiorOvr = Math.max(...historico.map(h => h.ovr), 60);
+  pts += (maiorOvr - 60) * 20;
+
+  const medalhas = historico.filter(h => h.torneioSelecao?.posicaoFinal.includes('Ouro')).length;
+  pts += medalhas * 180;
+
+  let tierLegado: RelatorioHallDaFama['tierLegado'] = 'Promessa Incompleta 📉';
+  let descricaoLegado = '';
+
+  if (pts >= 2200) {
+    tierLegado = 'Lenda Imortal (GOAT) 👑';
+    descricaoLegado = 'Sua carreira redefiniu a história do esporte. Debatido universalmente como um dos maiores de todos os tempos.';
+  } else if (pts >= 1500) {
+    tierLegado = 'Membro do Hall da Fama 🏛️';
+    descricaoLegado = 'Presença garantida no Hall da Fama do Basquete. Dominou a sua era com títulos e distinções individuais.';
+  } else if (pts >= 900) {
+    tierLegado = 'Ídolo de Franquia ⭐️';
+    descricaoLegado = 'Um nome gravado na memória dos adeptos. Camisa aposentada e anos de protagonismo no topo.';
+  } else if (pts >= 450) {
+    tierLegado = 'Carreira Respeitada 📊';
+    descricaoLegado = 'Um profissional exemplar que construiu uma trajetória sólida e longa pelas ligas mundiais.';
+  } else {
+    descricaoLegado = 'Sua carreira teve momentos de brilho, mas ficou marcada por inconstâncias ou lesões antes de atingir o auge.';
+  }
+
+  const titulosSelecao = historico
+    .filter(h => h.torneioSelecao?.posicaoFinal.includes('Ouro'))
+    .map(h => `${h.torneioSelecao?.nomeTorneio} (${h.idade}y)`);
+
+  return { pontosLegado: pts, tierLegado, descricaoLegado, titulosSelecao };
+}
+
+export function simularTorneioSelecao(idade: number, ovr: number): TorneioSelecao | undefined {
+  if (idade % 2 !== 0 || ovr < 74) return undefined;
+
+  const eOlimpiadas = idade % 4 === 0;
+  const nomeTorneio = eOlimpiadas ? 'Jogos Olímpicos 🥇' : 'Copa do Mundo FIBA 🏀';
+  
+  const rand = Math.random();
+  let posicaoFinal = 'Quartos de Final';
+  if (ovr >= 85 && rand < 0.40) posicaoFinal = 'Medalha de Ouro 🥇';
+  else if (ovr >= 80 && rand < 0.60) posicaoFinal = 'Medalha de Prata 🥈';
+  else if (rand < 0.40) posicaoFinal = 'Medalha de Bronze 🥉';
+
+  const ppgSelecao = Number((12 + (ovr - 70) * 0.4 + (Math.random() * 4 - 2)).toFixed(1));
+
+  return { nomeTorneio, posicaoFinal, ppgSelecao };
 }
 
 function calcularPercepcaoMidia(ovr: number, ppg: number, status?: string): string {
@@ -92,7 +164,8 @@ export function simularTemporadaAtual(
   clubeAtual: string,
   ovrAtual: number,
   quimicaAtual: number,
-  confiancaAtual: number
+  confiancaAtual: number,
+  focoTreino: FocoTreino = 'equilibrado'
 ): {
   novaTemporada: TemporadaHistorico;
   novoOvr: number;
@@ -133,20 +206,16 @@ export function simularTemporadaAtual(
     return { novaTemporada: temporadaVazia, novoOvr: ovrAtual, novaQuimica: quimicaAtual, novaConfianca: confiancaAtual, aposentado: true };
   }
 
-  // 2. Potencial Secreto
   let potencial = atleta.potencialSecreto || 'JogadorSolido';
 
-  // 3. Clube e Dificuldade
   const clubeObjeto = BANCO_DE_CLUBES.find(c => c.nome === clubeAtual);
   const reputacaoClube = clubeObjeto ? clubeObjeto.reputacao : 2;
   const nomeLiga = clubeObjeto ? clubeObjeto.liga : "NBB";
 
   const fatorDificuldadeLiga = 0.70 + (reputacaoClube * 0.15);
 
-  // 4. Função no Elenco
   const funcao = determinarFuncaoElenco(idadeAtual, ovrAtual, confiancaAtual, reputacaoClube);
 
-  // 5. Minutagem (MPG)
   let mpgBase = 10;
   if (funcao === 'Líder da Franquia 👑') mpgBase = 30 + (confiancaAtual / 100) * 5;
   else if (funcao === 'Sexto Homem ⚡') mpgBase = 21 + (confiancaAtual / 100) * 4;
@@ -156,33 +225,25 @@ export function simularTemporadaAtual(
 
   const mpg = Number(Math.min(38, Math.max(3, mpgBase)).toFixed(1));
 
-  // 6. Ajuste de Química
-  let varQuimica = 5;
+  // Modificadores por Foco de Treino
+  let bônusClutchTreino = focoTreino === 'arremesso' ? 5 : 0;
+  let bônusQuimicaTreino = focoTreino === 'iq' ? 6 : 0;
+  let reduçãoLesaoTreino = focoTreino === 'fisico' ? 0.04 : 0;
+
+  let varQuimica = 5 + bônusQuimicaTreino;
   if (funcao === 'Veterano / Mentor 👴') varQuimica += 4;
   if (funcao === 'Reserva Aquece-Banco 🪑') varQuimica -= 6;
   const quimicaCalculada = Math.min(100, Math.max(10, quimicaAtual + varQuimica));
   const fatorQuimica = quimicaCalculada / 100;
 
-  // 7. Performance Clutch
-  const desempenhoClutch = Math.min(100, Math.max(15, Math.round(((ovrAtual / fatorDificuldadeLiga) * 0.68) + (confiancaAtual * 0.20) + (Math.random() * 12))));
+  const desempenhoClutch = Math.min(100, Math.max(15, Math.round(((ovrAtual / fatorDificuldadeLiga) * 0.68) + (confiancaAtual * 0.20) + bônusClutchTreino + (Math.random() * 12))));
 
-  const premiacoesIndividuais: string[] = [];
-  const ganhouMvp = ovrAtual >= (76 + reputacaoClube * 2) && desempenhoClutch >= 72 && Math.random() < 0.20; 
-  if (ganhouMvp) premiacoesIndividuais.push('MVP da Época 👑');
-
-  if (ovrAtual >= (72 + reputacaoClube * 2) && Math.random() < 0.35) {
-    premiacoesIndividuais.push('Quinteto Ideal (All-League) ⭐');
-  }
-
-  // 8. Calendário e Playoffs
   const { jogosDisputados, chegouAosPlayoffs } = calcularJogosDaTemporada(nomeLiga, ovrAtual, false, quimicaCalculada);
   const ganhouTitulo = ovrAtual >= (66 + reputacaoClube * 2) && chegouAosPlayoffs && Math.random() < ((ovrAtual >= 80 ? 0.22 : 0.10) * (0.5 + fatorQuimica * 0.7));
 
-  if (ganhouTitulo) premiacoesIndividuais.push('Campeão da Liga 💍');
-
-  // 9. Lesões
+  // Lesões com Mitigação do Treino Físico
   let jogosEfetivos = jogosDisputados;
-  const chanceLesaoGrave = 0.05;
+  const chanceLesaoGrave = Math.max(0.01, 0.05 - reduçãoLesaoTreino);
   const sofreuLesaoGrave = Math.random() < chanceLesaoGrave;
   const sofreuLesaoComum = !sofreuLesaoGrave && Math.random() < (idadeAtual > 30 ? 0.16 : 0.08);
 
@@ -199,7 +260,6 @@ export function simularTemporadaAtual(
     statusLesao = 'Lesionado 🏥';
   }
 
-  // 10. Médias
   const fatorMinutos = mpg / 36;
   const fatorRendimentoOvr = Math.max(0, (ovrAtual - 52) / 40);
   const rendimentoAjustadoLiga = fatorRendimentoOvr / (fatorDificuldadeLiga * 0.88);
@@ -207,6 +267,10 @@ export function simularTemporadaAtual(
   let ppgBase = (5 + (rendimentoAjustadoLiga * 22)) * fatorMinutos; 
   let rpgBase = (1.2 + (fatorRendimentoOvr * 6.0)) * fatorMinutos;
   let apgBase = (1.0 + (fatorRendimentoOvr * 6.0)) * fatorMinutos * (0.85 + fatorQuimica * 0.25);
+
+  if (focoTreino === 'arremesso') ppgBase *= 1.1;
+  if (focoTreino === 'iq') apgBase *= 1.15;
+  if (focoTreino === 'fisico') rpgBase *= 1.12;
 
   if (atleta.posicao.includes('Armador (PG)')) {
     apgBase *= 1.35;
@@ -224,6 +288,35 @@ export function simularTemporadaAtual(
   const tpm = Number((0.2 + (fatorRendimentoOvr * 1.8) * fatorMinutos).toFixed(1));
   const tov = Number((0.8 + (Math.random() * 1.0)).toFixed(1));
 
+  // --- CÁLCULO DE PREMIAÇÕES DE MVP E QUINTETO IDEAL (REALISTA E MULTI-ESTATÍSTICO) ---
+  const indiceEficiencia = calcularIndiceEficiencia(ppg, rpg, apg, spg, tov);
+
+  // Candidato a MVP exige:
+  // - Eficiência alta (PER >= 22.0)
+  // - OVR condizente com o nível da liga
+  // - Equipa nos playoffs
+  // - Desempenho Clutch relevante (>= 68)
+  const candidatoMvp = 
+    indiceEficiencia >= 22.0 && 
+    ovrAtual >= (76 + reputacaoClube * 1.5) && 
+    chegouAosPlayoffs && 
+    desempenhoClutch >= 68;
+
+  const probabilidadeMvp = candidatoMvp 
+    ? Math.min(0.85, ((indiceEficiencia - 20) * 0.03) + (desempenhoClutch * 0.004)) 
+    : 0;
+
+  const ganhouMvp = Math.random() < probabilidadeMvp;
+
+  const premiacoesIndividuais: string[] = [];
+  if (ganhouMvp) premiacoesIndividuais.push('MVP da Época 👑');
+
+  if (indiceEficiencia >= 17.5 && ovrAtual >= (70 + reputacaoClube * 1.5) && Math.random() < 0.40) {
+    premiacoesIndividuais.push('Quinteto Ideal (All-League) ⭐');
+  }
+
+  if (ganhouTitulo) premiacoesIndividuais.push('Campeão da Liga 💍');
+
   const pontosTotais = Math.round(ppg * jogosEfetivos);
   const rebotesTotais = Math.round(rpg * jogosEfetivos);
   const assistenciasTotais = Math.round(apg * jogosEfetivos);
@@ -235,7 +328,9 @@ export function simularTemporadaAtual(
     else if (chegouAosPlayoffs) statusTemporada = 'Playoffs 🏀';
   }
 
-  // Divisão de estatísticas Fase Regular vs Playoffs
+  // Torneio Internacional
+  const torneioSelecao = simularTorneioSelecao(idadeAtual, ovrAtual);
+
   const jogosRegulares = chegouAosPlayoffs ? Math.floor(jogosEfetivos * 0.75) : jogosEfetivos;
   const jogosPlayoffs = chegouAosPlayoffs ? Math.max(4, jogosEfetivos - jogosRegulares) : 0;
 
@@ -304,10 +399,11 @@ export function simularTemporadaAtual(
     noticiaImprensa,
     faseRegular,
     playoffs: playoffsData,
+    torneioSelecao,
     premiacoesIndividuais
   };
 
-  // 11. EVOLUÇÃO DE OVR
+  // EVOLUÇÃO DE OVR
   let alteracaoOvr = 0;
   const bonusGymRat = atleta.mentalidade === 'Fominha de Treino (Gym Rat)' ? 1 : 0;
 
@@ -349,7 +445,6 @@ export function simularTemporadaAtual(
 
   const novoOvr = Math.min(99, Math.max(45, ovrAtual + alteracaoOvr));
 
-  // 12. Eventos
   let eventoSorteado: TemplateEvento | undefined = undefined;
   if (idadeAtual < 36 && BANCO_DE_EVENTOS.length > 0 && Math.random() < 0.38) {
     const indexAleatorio = Math.floor(Math.random() * BANCO_DE_EVENTOS.length);
