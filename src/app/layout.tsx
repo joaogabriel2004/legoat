@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Basket Career Sim - Football Manager Edition",
+  title: "LeGoat - Simulador de Carreira de Basquete",
   description: "Simulação de carreira de basquete com interface autêntica",
 };
 
