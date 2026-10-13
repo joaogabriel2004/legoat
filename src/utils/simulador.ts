@@ -1,4 +1,4 @@
-import { Atleta, TemporadaHistorico, FuncaoElenco, NoticiaImprensa } from '@/src/types/basquete';
+import { Atleta, TemporadaHistorico, FuncaoElenco, NoticiaImprensa, EstatisticasFase } from '@/src/types/basquete';
 import { BANCO_DE_CLUBES } from '@/src/data/clubes';
 import { BANCO_DE_EVENTOS, TemplateEvento } from '@/src/data/eventos';
 import { calcularJogosDaTemporada } from '@/src/data/ligas';
@@ -21,11 +21,14 @@ export function determinarFuncaoElenco(idade: number, ovr: number, confianca: nu
   return 'Promessa 🐣';
 }
 
-export function obterProjecaoImprensa(potencial: string, ovr: number): string {
-  if (ovr >= 88) return '🌟 Estrela de Calibre Mundial';
-  if (potencial === 'GeracaoUnica') return '🔥 Fenômeno com Teto Ilimitado';
-  if (potencial === 'JogadorSolido') return '🏀 Promessa com Futuro Promissor';
-  return '⚠️ Jogador com Teto Questionável';
+function calcularPercepcaoMidia(ovr: number, ppg: number, status?: string): string {
+  if (status?.includes('MVP')) return '👑 Estrela Suprema da Liga';
+  if (status?.includes('Campeão')) return '💍 Campeão Aclamado';
+  if (ovr >= 86) return '⭐ Nível Superstar NBA/EuroLiga';
+  if (ovr >= 78) return '🔥 Titular Consistente de Elite';
+  if (ovr >= 70 && ppg >= 10) return '📈 Promessa em Ascensão';
+  if (ovr <= 65 && ppg < 6) return '⚠️ Sob Risco de Descarte';
+  return '📊 Peça de Rotação Padrão';
 }
 
 function gerarMancheteImprensa(
@@ -34,31 +37,30 @@ function gerarMancheteImprensa(
   status: string | undefined,
   clutch: number,
   mpg: number,
+  ppg: number,
   funcao: FuncaoElenco
 ): NoticiaImprensa {
   const veiculos = ['BasketNews', 'Globo Esporte', 'ESPN Central', 'HoopCentral', 'DraftExpress'];
   const veiculo = veiculos[Math.floor(Math.random() * veiculos.length)];
+  const percepcaoMercado = calcularPercepcaoMidia(ovr, ppg, status);
 
   if (status?.includes('MVP')) {
-    return { manchete: `👑 TEMPORADA LENDÁRIA! ${nomeAtleta} domina a liga e conquista o prêmio de MVP!`, veiculo, tipo: 'sucesso' };
+    return { manchete: `👑 TEMPORADA LENDÁRIA! ${nomeAtleta} domina a liga e conquista o prêmio de MVP!`, veiculo, tipo: 'sucesso', percepcaoMercado };
   }
   if (status?.includes('Campeão')) {
-    return { manchete: `💍 ANEL NO DEDO! ${nomeAtleta} brilha nas finais e levanta a taça!`, veiculo, tipo: 'sucesso' };
+    return { manchete: `💍 ANEL NO DEDO! ${nomeAtleta} brilha nos playoffs e levanta a taça!`, veiculo, tipo: 'sucesso', percepcaoMercado };
   }
   if (clutch >= 75) {
-    return { manchete: `🔥 SANGUE FRIO! Analistas destacam a capacidade decisiva de ${nomeAtleta} nos momentos finais.`, veiculo, tipo: 'sucesso' };
+    return { manchete: `🔥 SANGUE FRIO! Analistas destacam a capacidade decisiva de ${nomeAtleta} nos momentos finais.`, veiculo, tipo: 'sucesso', percepcaoMercado };
   }
   if (funcao === 'Reserva Aquece-Banco 🪑' || mpg < 10) {
-    return { manchete: `📉 FORA DOS PLANOS? Sem minutos de quadra, futuro de ${nomeAtleta} vira incerteza.`, veiculo, tipo: 'crise' };
+    return { manchete: `📉 FORA DOS PLANOS? Sem minutos de quadra, futuro de ${nomeAtleta} vira incerteza.`, veiculo, tipo: 'crise', percepcaoMercado };
   }
   if (ovr >= 82) {
-    return { manchete: `⭐ NÍVEL ALL-STAR: ${nomeAtleta} firma-se entre os melhores atletas da sua posição.`, veiculo, tipo: 'sucesso' };
-  }
-  if (ovr <= 65 && mpg > 20) {
-    return { manchete: `⚠️ DIFICULDADES EM QUADRA: Mídia critica baixo aproveitamento nos arremessos de ${nomeAtleta}.`, veiculo, tipo: 'alerta' };
+    return { manchete: `⭐ NÍVEL ALL-STAR: ${nomeAtleta} firma-se entre os melhores da sua posição.`, veiculo, tipo: 'sucesso', percepcaoMercado };
   }
 
-  return { manchete: `📊 DESEMPENHO SÓLIDO: ${nomeAtleta} cumpre papel na rotação e mantém estabilidade.`, veiculo, tipo: 'neutro' };
+  return { manchete: `📊 DESEMPENHO SÓLIDO: ${nomeAtleta} cumpre papel na rotação e mantém estabilidade.`, veiculo, tipo: 'neutro', percepcaoMercado };
 }
 
 export function gerarOfertasTransferencia(ovrAtual: number, clubeAtualNome: string): string[] {
@@ -107,6 +109,7 @@ export function simularTemporadaAtual(
     const temporadaVazia: TemporadaHistorico = {
       idade: idadeAtual,
       clube: 'Aposentado 🛑',
+      liga: '—',
       ovr: ovrAtual,
       funcao: 'Veterano / Mentor 👴',
       confiancaTreinador: confiancaAtual,
@@ -123,7 +126,9 @@ export function simularTemporadaAtual(
       rebotesTotais: 0,
       assistenciasTotais: 0,
       titulos: 0,
-      status: 'Fim de Carreira 🏅'
+      status: 'Fim de Carreira 🏅',
+      faseRegular: { jogos: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, tpm: 0, tov: 0 },
+      premiacoesIndividuais: []
     };
     return { novaTemporada: temporadaVazia, novoOvr: ovrAtual, novaQuimica: quimicaAtual, novaConfianca: confiancaAtual, aposentado: true };
   }
@@ -161,28 +166,21 @@ export function simularTemporadaAtual(
   // 7. Performance Clutch
   const desempenhoClutch = Math.min(100, Math.max(15, Math.round(((ovrAtual / fatorDificuldadeLiga) * 0.68) + (confiancaAtual * 0.20) + (Math.random() * 12))));
 
+  const premiacoesIndividuais: string[] = [];
   const ganhouMvp = ovrAtual >= (76 + reputacaoClube * 2) && desempenhoClutch >= 72 && Math.random() < 0.20; 
+  if (ganhouMvp) premiacoesIndividuais.push('MVP da Época 👑');
 
-  // 8. POTENCIAL DINÂMICO (Romper o teto ou flopar com base nas temporadas)
-  if (desempenhoClutch >= 78 && confiancaAtual >= 80 && potencial === 'JogadorSolido' && Math.random() < 0.18) {
-    atleta.potencialSecreto = 'GeracaoUnica'; // Promovido a estrela!
-    potencial = 'GeracaoUnica';
-  } else if (confiancaAtual < 40 && mpg < 10 && potencial === 'JogadorSolido' && Math.random() < 0.25) {
-    atleta.potencialSecreto = 'RiscoFlop'; // Rebaixado a risco de flop
-    potencial = 'RiscoFlop';
+  if (ovrAtual >= (72 + reputacaoClube * 2) && Math.random() < 0.35) {
+    premiacoesIndividuais.push('Quinteto Ideal (All-League) ⭐');
   }
 
-  // 9. Calendário e Playoffs
+  // 8. Calendário e Playoffs
   const { jogosDisputados, chegouAosPlayoffs } = calcularJogosDaTemporada(nomeLiga, ovrAtual, false, quimicaCalculada);
   const ganhouTitulo = ovrAtual >= (66 + reputacaoClube * 2) && chegouAosPlayoffs && Math.random() < ((ovrAtual >= 80 ? 0.22 : 0.10) * (0.5 + fatorQuimica * 0.7));
 
-  // 10. Confiança do Treinador
-  let varConfianca = 2;
-  if (desempenhoClutch >= 68) varConfianca += 3;
-  if (mpg < 10) varConfianca -= 4;
-  const confiancaCalculada = Math.min(100, Math.max(15, confiancaAtual + varConfianca));
+  if (ganhouTitulo) premiacoesIndividuais.push('Campeão da Liga 💍');
 
-  // 11. Lesões
+  // 9. Lesões
   let jogosEfetivos = jogosDisputados;
   const chanceLesaoGrave = 0.05;
   const sofreuLesaoGrave = Math.random() < chanceLesaoGrave;
@@ -201,7 +199,7 @@ export function simularTemporadaAtual(
     statusLesao = 'Lesionado 🏥';
   }
 
-  // 12. Médias
+  // 10. Médias
   const fatorMinutos = mpg / 36;
   const fatorRendimentoOvr = Math.max(0, (ovrAtual - 52) / 40);
   const rendimentoAjustadoLiga = fatorRendimentoOvr / (fatorDificuldadeLiga * 0.88);
@@ -221,7 +219,7 @@ export function simularTemporadaAtual(
 
   const ppg = Number(Math.max(0.8, ppgBase + (Math.random() * 1.8 - 0.9)).toFixed(1));
   const rpg = Number(Math.max(0.2, rpgBase + (Math.random() * 1.0 - 0.5)).toFixed(1));
-  const apg = Number(Math.max(0.2, apgBase + (Math.random() * 1.0 - 0.5)).toFixed(1));
+  const apg = Number(Math.max(0.2, apgBase + (Math.random() * 1.2 - 0.6)).toFixed(1));
   const spg = Number((0.2 + (fatorRendimentoOvr * 0.9) * fatorMinutos).toFixed(1));
   const tpm = Number((0.2 + (fatorRendimentoOvr * 1.8) * fatorMinutos).toFixed(1));
   const tov = Number((0.8 + (Math.random() * 1.0)).toFixed(1));
@@ -237,22 +235,58 @@ export function simularTemporadaAtual(
     else if (chegouAosPlayoffs) statusTemporada = 'Playoffs 🏀';
   }
 
-  // GERAR MANCHETE DA IMPRENSA DA ÉPOCA
+  // Divisão de estatísticas Fase Regular vs Playoffs
+  const jogosRegulares = chegouAosPlayoffs ? Math.floor(jogosEfetivos * 0.75) : jogosEfetivos;
+  const jogosPlayoffs = chegouAosPlayoffs ? Math.max(4, jogosEfetivos - jogosRegulares) : 0;
+
+  const faseRegular: EstatisticasFase = {
+    jogos: jogosRegulares,
+    ppg,
+    rpg,
+    apg,
+    spg,
+    tpm,
+    tov
+  };
+
+  let playoffsData: (EstatisticasFase & { resultadoCampanha: string }) | undefined = undefined;
+
+  if (chegouAosPlayoffs) {
+    const ppgPlayoffs = Number((ppg * (ganhouTitulo ? 1.15 : 0.95)).toFixed(1));
+    let campanha = 'Eliminado na 1ª Ronda ❌';
+    if (ganhouTitulo) campanha = 'Campeão do Torneio 💍';
+    else if (desempenhoClutch >= 70) campanha = 'Vice-Campeão nas Finais 🥈';
+    else if (desempenhoClutch >= 50) campanha = 'Eliminado nas Semifinais 🥉';
+
+    playoffsData = {
+      jogos: jogosPlayoffs,
+      ppg: ppgPlayoffs,
+      rpg: Number((rpg * 1.05).toFixed(1)),
+      apg: Number((apg * 1.05).toFixed(1)),
+      spg,
+      tpm,
+      tov,
+      resultadoCampanha: campanha
+    };
+  }
+
   const noticiaImprensa = gerarMancheteImprensa(
     atleta.nome || 'O Atleta',
     ovrAtual,
     statusTemporada,
     desempenhoClutch,
     mpg,
+    ppg,
     funcao
   );
 
   const novaTemporada: TemporadaHistorico = {
     idade: idadeAtual,
     clube: clubeAtual,
+    liga: nomeLiga,
     ovr: ovrAtual,
     funcao,
-    confiancaTreinador: confiancaCalculada,
+    confiancaTreinador: confiancaAtual,
     mpg,
     jogos: jogosEfetivos,
     ppg,
@@ -267,10 +301,13 @@ export function simularTemporadaAtual(
     assistenciasTotais,
     titulos: ganhouTitulo ? 1 : 0,
     status: statusTemporada,
-    noticiaImprensa
+    noticiaImprensa,
+    faseRegular,
+    playoffs: playoffsData,
+    premiacoesIndividuais
   };
 
-  // 13. CURVA DE OVR RECALIBRADA
+  // 11. EVOLUÇÃO DE OVR
   let alteracaoOvr = 0;
   const bonusGymRat = atleta.mentalidade === 'Fominha de Treino (Gym Rat)' ? 1 : 0;
 
@@ -287,7 +324,7 @@ export function simularTemporadaAtual(
       if (ovrAtual >= 92) {
         alteracaoOvr = Math.random() < 0.35 ? 1 : 0;
       } else {
-        alteracaoOvr = Math.floor(Math.random() * 2) + 1 + (confiancaCalculada >= 70 ? 1 : 0);
+        alteracaoOvr = Math.floor(Math.random() * 2) + 1 + (confiancaAtual >= 70 ? 1 : 0);
       }
     } else if (potencial === 'JogadorSolido') {
       if (ovrAtual >= 82) {
@@ -312,7 +349,7 @@ export function simularTemporadaAtual(
 
   const novoOvr = Math.min(99, Math.max(45, ovrAtual + alteracaoOvr));
 
-  // 14. Eventos
+  // 12. Eventos
   let eventoSorteado: TemplateEvento | undefined = undefined;
   if (idadeAtual < 36 && BANCO_DE_EVENTOS.length > 0 && Math.random() < 0.38) {
     const indexAleatorio = Math.floor(Math.random() * BANCO_DE_EVENTOS.length);
@@ -323,7 +360,7 @@ export function simularTemporadaAtual(
     novaTemporada,
     novoOvr,
     novaQuimica: quimicaCalculada,
-    novaConfianca: confiancaCalculada,
+    novaConfianca: confiancaAtual,
     eventoSorteado,
     aposentado: false
   };

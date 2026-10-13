@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira } from '@/src/types/basquete';
 import { BANCO_DE_CLUBES } from '@/src/data/clubes';
-import { determinarFuncaoElenco, obterProjecaoImprensa } from '@/src/utils/simulador';
+import { determinarFuncaoElenco } from '@/src/utils/simulador';
 
 interface Props {
   atleta: Atleta;
@@ -36,6 +36,8 @@ export default function TelaResumo({
   faseSub, eventoAtivo, ofertasTransferencia, onAvancarTemporada, onSelecionarClube, onReset
 }: Props) {
   const [modoExibicao, setModoExibicao] = useState<'medias' | 'totais' | 'imprensa'>('medias');
+  const [temporadaDetalhada, setTemporadaDetalhada] = useState<TemporadaHistorico | null>(null);
+
   const idadesCarreira = Array.from({ length: 24 }, (_, i) => 16 + i);
 
   const ultimaTemporada = historico[0];
@@ -44,11 +46,92 @@ export default function TelaResumo({
   const clubeAtualObj = BANCO_DE_CLUBES.find(c => c.nome === clubeAtual);
   const ligaAtual = clubeAtualObj ? clubeAtualObj.liga : 'NBB';
 
-  const projecaoMercado = obterProjecaoImprensa(atleta.potencialSecreto || 'JogadorSolido', ovrAtual);
+  const percepcaoMidiaAtual = ultimaTemporada?.noticiaImprensa?.percepcaoMercado || '📈 Promessa em Formação';
 
   return (
-    <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+    <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1, minHeight: 0, position: 'relative' }}>
       
+      {/* MODAL DE DETALHES DA ÉPOCA */}
+      {temporadaDetalhada && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: CORES.bgCard, border: `2px solid ${CORES.destaque}`, borderRadius: '16px', maxWidth: '650px', width: '100%', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', color: '#fff', boxShadow: '0 20px 50px rgba(0,0,0,0.8)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: CORES.destaque, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                  Relatório Completo • {temporadaDetalhada.idade} anos
+                </span>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '900', margin: '0.2rem 0 0 0' }}>
+                  {temporadaDetalhada.clube} <span style={{ color: CORES.textoSecundario, fontSize: '1rem' }}>({temporadaDetalhada.liga})</span>
+                </h2>
+              </div>
+              <button onClick={() => setTemporadaDetalhada(null)} style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, color: '#fff', width: '32px', height: '32px', borderRadius: '50%', fontWeight: 'bold', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {/* NOTÍCIA DA ÉPOCA */}
+            {temporadaDetalhada.noticiaImprensa && (
+              <div style={{ background: CORES.bgInput, borderLeft: `4px solid ${CORES.destaque}`, padding: '0.85rem', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.65rem', color: CORES.textoSecundario, fontWeight: 'bold' }}>
+                  📰 {temporadaDetalhada.noticiaImprensa.veiculo}
+                </span>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  "{temporadaDetalhada.noticiaImprensa.manchete}"
+                </p>
+              </div>
+            )}
+
+            {/* TABELA REGULAR vs PLAYOFFS */}
+            <div style={{ display: 'grid', gridTemplateColumns: temporadaDetalhada.playoffs ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+              
+              {/* FASE REGULAR */}
+              <div style={{ background: CORES.bgInput, padding: '1rem', borderRadius: '10px', border: `1px solid ${CORES.borda}` }}>
+                <h4 style={{ fontSize: '0.8rem', color: CORES.destaque, margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>🏀 Época Regular</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                  <div>Jogos: <strong style={{ color: '#fff' }}>{temporadaDetalhada.faseRegular.jogos}</strong></div>
+                  <div>Pontos (PPG): <strong style={{ color: '#34d399' }}>{temporadaDetalhada.faseRegular.ppg}</strong></div>
+                  <div>Rebotes (RPG): <strong style={{ color: '#fff' }}>{temporadaDetalhada.faseRegular.rpg}</strong></div>
+                  <div>Assistências (APG): <strong style={{ color: '#fff' }}>{temporadaDetalhada.faseRegular.apg}</strong></div>
+                </div>
+              </div>
+
+              {/* PLAYOFFS */}
+              {temporadaDetalhada.playoffs && (
+                <div style={{ background: CORES.bgInput, padding: '1rem', borderRadius: '10px', border: `1px solid #fbbf24` }}>
+                  <h4 style={{ fontSize: '0.8rem', color: '#fbbf24', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>🏆 Playoffs</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                    <div>Campanha: <strong style={{ color: '#fbbf24' }}>{temporadaDetalhada.playoffs.resultadoCampanha}</strong></div>
+                    <div>Jogos: <strong style={{ color: '#fff' }}>{temporadaDetalhada.playoffs.jogos}</strong></div>
+                    <div>Pontos (PPG): <strong style={{ color: '#34d399' }}>{temporadaDetalhada.playoffs.ppg}</strong></div>
+                    <div>Rebotes (RPG): <strong style={{ color: '#fff' }}>{temporadaDetalhada.playoffs.rpg}</strong></div>
+                    <div>Assistências (APG): <strong style={{ color: '#fff' }}>{temporadaDetalhada.playoffs.apg}</strong></div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* PREMIAÇÕES DA ÉPOCA */}
+            {temporadaDetalhada.premiacoesIndividuais.length > 0 && (
+              <div>
+                <span style={{ fontSize: '0.7rem', color: CORES.textoSecundario, textTransform: 'uppercase', fontWeight: 'bold' }}>Conquistas do Ano:</span>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
+                  {temporadaDetalhada.premiacoesIndividuais.map((p, i) => (
+                    <span key={i} style={{ background: '#1e293b', color: '#fbbf24', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => setTemporadaDetalhada(null)} style={{ background: CORES.destaque, color: '#070908', fontWeight: 'bold', padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>
+              Fechar Detalhes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GRID PRINCIPAL */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '1.5rem', flex: 1, minHeight: 0 }}>
         
         {/* COLUNA ESQUERDA */}
@@ -86,17 +169,17 @@ export default function TelaResumo({
               </div>
             </div>
 
-            {/* SEÇÃO DA IMPRENSA: COTAÇÃO PÚBLICA */}
+            {/* SEÇÃO DA IMPRENSA DINÂMICA */}
             <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.65rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.68rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase' }}>
                 📰 Percepção da Mídia:
               </span>
               <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#fbbf24' }}>
-                {projecaoMercado}
+                {percepcaoMidiaAtual}
               </span>
             </div>
 
-            {/* BARRA DE QUÍMICA DO ELENCO */}
+            {/* BARRAS DE QUÍMICA E CONFIANÇA */}
             <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                 <span style={{ fontSize: '0.68rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase' }}>
@@ -111,7 +194,6 @@ export default function TelaResumo({
               </div>
             </div>
 
-            {/* BARRA DE CONFIANÇA DO TREINADOR */}
             <div style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                 <span style={{ fontSize: '0.68rem', fontWeight: '800', color: CORES.textoSecundario, textTransform: 'uppercase' }}>
@@ -148,7 +230,7 @@ export default function TelaResumo({
             )}
           </div>
 
-          {/* PAINEL DE APOSENTADORIA */}
+          {/* PAINÉIS DE EVENTO, TRANSFERÊNCIA E APOSENTADORIA */}
           {faseSub === 'aposentado' && (
             <div style={{ background: CORES.bgCard, border: `2px solid #fbbf24`, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', flexShrink: 0 }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: '900', color: '#fbbf24', marginBottom: '0.4rem' }}>🏅 Fim de Carreira</h3>
@@ -161,7 +243,6 @@ export default function TelaResumo({
             </div>
           )}
 
-          {/* PAINEL DE EVENTO */}
           {faseSub === 'evento' && eventoAtivo && (
             <div style={{ background: CORES.bgCard, border: `2px solid ${CORES.destaque}`, borderRadius: '16px', padding: '1.25rem', flexShrink: 0 }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: '900', color: CORES.destaque, marginBottom: '0.25rem', textTransform: 'uppercase' }}>⚠️ {eventoAtivo.titulo}</h3>
@@ -177,7 +258,6 @@ export default function TelaResumo({
             </div>
           )}
 
-          {/* PAINEL DE TRANSFERÊNCIAS */}
           {faseSub === 'transferencia' && (
             <div style={{ background: CORES.bgCard, border: `2px solid ${CORES.destaque}`, borderRadius: '16px', padding: '1.25rem', flexShrink: 0 }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: '900', color: CORES.destaque, marginBottom: '0.25rem', textTransform: 'uppercase' }}>🔄 Janela de Transferências</h3>
@@ -233,12 +313,12 @@ export default function TelaResumo({
 
         </div>
 
-        {/* COLUNA DIREITA: LINHA DO TEMPO E ABA DE IMPRENSA */}
+        {/* COLUNA DIREITA: LINHA DO TEMPO E DETALHAMENTO */}
         <div style={{ background: CORES.bgCard, border: `1px solid ${CORES.borda}`, borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexShrink: 0 }}>
             <h3 style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: CORES.textoSecundario, margin: 0 }}>
-              {modoExibicao === 'imprensa' ? '📰 Feed de Notícias da Carreira' : 'Linha do Tempo da Carreira'}
+              {modoExibicao === 'imprensa' ? '📰 Feed de Notícias' : 'Linha do Tempo da Carreira'}
             </h3>
             
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -269,10 +349,9 @@ export default function TelaResumo({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1, minHeight: 0, paddingRight: '0.25rem' }}>
             {modoExibicao === 'imprensa' ? (
-              // EXIBIÇÃO DAS NOTÍCIAS DA IMPRENSA
               historico.length > 0 ? (
                 historico.map(temp => (
-                  <div key={temp.idade} style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <div key={temp.idade} onClick={() => setTemporadaDetalhada(temp)} style={{ background: CORES.bgInput, border: `1px solid ${CORES.borda}`, borderRadius: '10px', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.65rem', color: CORES.destaque, fontWeight: '800', textTransform: 'uppercase' }}>
                         📌 {temp.noticiaImprensa?.veiculo || 'Imprensa Esportiva'} ({temp.idade} anos)
@@ -282,15 +361,14 @@ export default function TelaResumo({
                       </span>
                     </div>
                     <p style={{ color: temp.noticiaImprensa?.tipo === 'crise' ? '#f87171' : (temp.noticiaImprensa?.tipo === 'sucesso' ? '#34d399' : '#fff'), fontSize: '0.82rem', fontWeight: '600', margin: 0, lineHeight: '1.3' }}>
-                      {temp.noticiaImprensa?.manchete || 'Temporada encerrada com estatísticas dentro da média.'}
+                      {temp.noticiaImprensa?.manchete || 'Temporada encerrada.'}
                     </p>
                   </div>
                 ))
               ) : (
-                <p style={{ color: CORES.textoSecundario, fontSize: '0.8rem', textAlign: 'center', marginTop: '2rem' }}>Nenhuma notícia publicada ainda. Simule sua primeira época!</p>
+                <p style={{ color: CORES.textoSecundario, fontSize: '0.8rem', textAlign: 'center', marginTop: '2rem' }}>Nenhuma notícia publicada ainda.</p>
               )
             ) : (
-              // EXIBIÇÃO PADRÃO DAS TEMPORADAS
               idadesCarreira.map(idade => {
                 const temporadaAno = historico.find(t => t.idade === idade);
                 const jaPassou = temporadaAno !== undefined;
@@ -303,6 +381,7 @@ export default function TelaResumo({
                 return (
                   <div 
                     key={idade} 
+                    onClick={() => jaPassou && setTemporadaDetalhada(temporadaAno)}
                     style={{ 
                       background: ehAtual ? '#1c1f1f' : (jaPassou ? CORES.bgInput : '#0d0f0f'), 
                       border: `1px solid ${ehAtual ? CORES.destaque : CORES.borda}`, 
@@ -312,7 +391,8 @@ export default function TelaResumo({
                       justifyContent: 'space-between', 
                       alignItems: 'center',
                       opacity: jaPassou || ehAtual ? 1 : 0.4,
-                      flexShrink: 0
+                      flexShrink: 0,
+                      cursor: jaPassou ? 'pointer' : 'default'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -336,25 +416,24 @@ export default function TelaResumo({
                       )}
                     </div>
 
-                    <div style={{ color: CORES.textoSecundario, fontSize: '0.72rem', display: 'flex', gap: '0.7rem' }}>
+                    <div style={{ color: CORES.textoSecundario, fontSize: '0.72rem', display: 'flex', gap: '0.7rem', alignItems: 'center' }}>
                       {jaPassou ? (
-                        modoExibicao === 'medias' ? (
-                          <>
-                            <span>Over: <strong style={{ color: '#60a5fa' }}>{temporadaAno.ovr}</strong></span>
-                            <span>MPG: <strong style={{ color: '#60a5fa' }}>{temporadaAno.mpg}</strong></span>
-                            <span>PPG: <strong style={{ color: '#34d399' }}>{temporadaAno.ppg}</strong></span>
-                            <span>RPG: <strong style={{ color: '#fff' }}>{temporadaAno.rpg}</strong></span>
-                            <span>APG: <strong style={{ color: '#fff' }}>{temporadaAno.apg}</strong></span>
-                            <span>CLUTCH: <strong style={{ color: '#fbbf24' }}>{temporadaAno.desempenhoClutch}</strong></span>
-                          </>
-                        ) : (
-                          <>
-                            <span>JOGOS: <strong style={{ color: '#fff' }}>{temporadaAno.jogos}</strong></span>
-                            <span>PTS: <strong style={{ color: '#34d399' }}>{temporadaAno.pontosTotais}</strong></span>
-                            <span>REB: <strong style={{ color: '#fff' }}>{temporadaAno.rebotesTotais}</strong></span>
-                            <span>AST: <strong style={{ color: '#fff' }}>{temporadaAno.assistenciasTotais}</strong></span>
-                          </>
-                        )
+                        <>
+                          {modoExibicao === 'medias' ? (
+                            <>
+                              <span>Over: <strong style={{ color: '#60a5fa' }}>{temporadaAno.ovr}</strong></span>
+                              <span>MPG: <strong style={{ color: '#60a5fa' }}>{temporadaAno.mpg}</strong></span>
+                              <span>PPG: <strong style={{ color: '#34d399' }}>{temporadaAno.ppg}</strong></span>
+                              <span>APG: <strong style={{ color: '#fff' }}>{temporadaAno.apg}</strong></span>
+                            </>
+                          ) : (
+                            <>
+                              <span>JOGOS: <strong style={{ color: '#fff' }}>{temporadaAno.jogos}</strong></span>
+                              <span>PTS: <strong style={{ color: '#34d399' }}>{temporadaAno.pontosTotais}</strong></span>
+                            </>
+                          )}
+                          <span style={{ color: CORES.destaque, fontSize: '0.65rem', background: '#0a0c0c', padding: '0.15rem 0.35rem', borderRadius: '4px', border: `1px solid ${CORES.borda}` }}>🔍 Ver</span>
+                        </>
                       ) : (
                         <span style={{ fontSize: '0.68rem', fontStyle: 'italic' }}>{ehAtual ? 'Época atual' : '—'}</span>
                       )}

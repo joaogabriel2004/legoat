@@ -19,11 +19,23 @@ export interface NoticiaImprensa {
   manchete: string;
   veiculo: string;
   tipo: 'sucesso' | 'alerta' | 'crise' | 'neutro';
+  percepcaoMercado: string; // Ex: "Estrela do Ano", "Em Afirmação", "Sob Pressão"
+}
+
+export interface EstatisticasFase {
+  jogos: number;
+  ppg: number;
+  rpg: number;
+  apg: number;
+  spg: number;
+  tpm: number;
+  tov: number;
 }
 
 export interface TemporadaHistorico {
   idade: number;
   clube: string;
+  liga: string;
   ovr: number;
   funcao: FuncaoElenco;
   confiancaTreinador: number;
@@ -42,6 +54,11 @@ export interface TemporadaHistorico {
   titulos: number;
   status?: string;
   noticiaImprensa?: NoticiaImprensa;
+  
+  // Detalhamento por Fase
+  faseRegular: EstatisticasFase;
+  playoffs?: EstatisticasFase & { resultadoCampanha: string };
+  premiacoesIndividuais: string[];
 }
 
 export interface EventoAleatorio {
