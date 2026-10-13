@@ -1,4 +1,4 @@
-import { Atleta, TemporadaHistorico, FuncaoElenco } from '@/src/types/basquete';
+import { Atleta, TemporadaHistorico, FuncaoElenco, NoticiaImprensa } from '@/src/types/basquete';
 import { BANCO_DE_CLUBES } from '@/src/data/clubes';
 import { BANCO_DE_EVENTOS, TemplateEvento } from '@/src/data/eventos';
 import { calcularJogosDaTemporada } from '@/src/data/ligas';
@@ -11,8 +11,6 @@ export function obterClubeInicial(): string {
 
 export function determinarFuncaoElenco(idade: number, ovr: number, confianca: number, reputacaoClube: number): FuncaoElenco {
   if (idade >= 32) return 'Veterano / Mentor 👴';
-  
-  // Se a confiança for terrível (<35), o atleta é encostado
   if (confianca < 35) return 'Reserva Aquece-Banco 🪑';
 
   const ovrMinimoEstrela = 62 + (reputacaoClube * 4.0);
@@ -21,6 +19,46 @@ export function determinarFuncaoElenco(idade: number, ovr: number, confianca: nu
   if (ovr >= ovrMinimoEstrela && confianca >= 55) return 'Líder da Franquia 👑';
   if (ovr >= ovrMinimoTitular && confianca >= 45) return 'Sexto Homem ⚡';
   return 'Promessa 🐣';
+}
+
+export function obterProjecaoImprensa(potencial: string, ovr: number): string {
+  if (ovr >= 88) return '🌟 Estrela de Calibre Mundial';
+  if (potencial === 'GeracaoUnica') return '🔥 Fenômeno com Teto Ilimitado';
+  if (potencial === 'JogadorSolido') return '🏀 Promessa com Futuro Promissor';
+  return '⚠️ Jogador com Teto Questionável';
+}
+
+function gerarMancheteImprensa(
+  nomeAtleta: string,
+  ovr: number,
+  status: string | undefined,
+  clutch: number,
+  mpg: number,
+  funcao: FuncaoElenco
+): NoticiaImprensa {
+  const veiculos = ['BasketNews', 'Globo Esporte', 'ESPN Central', 'HoopCentral', 'DraftExpress'];
+  const veiculo = veiculos[Math.floor(Math.random() * veiculos.length)];
+
+  if (status?.includes('MVP')) {
+    return { manchete: `👑 TEMPORADA LENDÁRIA! ${nomeAtleta} domina a liga e conquista o prêmio de MVP!`, veiculo, tipo: 'sucesso' };
+  }
+  if (status?.includes('Campeão')) {
+    return { manchete: `💍 ANEL NO DEDO! ${nomeAtleta} brilha nas finais e levanta a taça!`, veiculo, tipo: 'sucesso' };
+  }
+  if (clutch >= 75) {
+    return { manchete: `🔥 SANGUE FRIO! Analistas destacam a capacidade decisiva de ${nomeAtleta} nos momentos finais.`, veiculo, tipo: 'sucesso' };
+  }
+  if (funcao === 'Reserva Aquece-Banco 🪑' || mpg < 10) {
+    return { manchete: `📉 FORA DOS PLANOS? Sem minutos de quadra, futuro de ${nomeAtleta} vira incerteza.`, veiculo, tipo: 'crise' };
+  }
+  if (ovr >= 82) {
+    return { manchete: `⭐ NÍVEL ALL-STAR: ${nomeAtleta} firma-se entre os melhores atletas da sua posição.`, veiculo, tipo: 'sucesso' };
+  }
+  if (ovr <= 65 && mpg > 20) {
+    return { manchete: `⚠️ DIFICULDADES EM QUADRA: Mídia critica baixo aproveitamento nos arremessos de ${nomeAtleta}.`, veiculo, tipo: 'alerta' };
+  }
+
+  return { manchete: `📊 DESEMPENHO SÓLIDO: ${nomeAtleta} cumpre papel na rotação e mantém estabilidade.`, veiculo, tipo: 'neutro' };
 }
 
 export function gerarOfertasTransferencia(ovrAtual: number, clubeAtualNome: string): string[] {
@@ -62,7 +100,7 @@ export function simularTemporadaAtual(
   aposentado?: boolean;
 } {
   
-  // 1. Aposentadoria Automática (Aposenta mais cedo se o OVR estagnar baixo)
+  // 1. Aposentadoria Automática
   const chanceAposentar = idadeAtual >= 37 ? 0.8 : (idadeAtual >= 32 && ovrAtual < 64 ? 0.6 : (ovrAtual < 52 ? 0.95 : 0));
   
   if (Math.random() < chanceAposentar || idadeAtual >= 39) {
@@ -90,8 +128,8 @@ export function simularTemporadaAtual(
     return { novaTemporada: temporadaVazia, novoOvr: ovrAtual, novaQuimica: quimicaAtual, novaConfianca: confiancaAtual, aposentado: true };
   }
 
-  // 2. Potencial Secreto (Sorteado se não existir no objeto do atleta)
-  const potencial = atleta.potencialSecreto || 'JogadorSolido';
+  // 2. Potencial Secreto
+  let potencial = atleta.potencialSecreto || 'JogadorSolido';
 
   // 3. Clube e Dificuldade
   const clubeObjeto = BANCO_DE_CLUBES.find(c => c.nome === clubeAtual);
@@ -103,7 +141,7 @@ export function simularTemporadaAtual(
   // 4. Função no Elenco
   const funcao = determinarFuncaoElenco(idadeAtual, ovrAtual, confiancaAtual, reputacaoClube);
 
-  // 5. Minutagem (MPG) Ponderada por Função
+  // 5. Minutagem (MPG)
   let mpgBase = 10;
   if (funcao === 'Líder da Franquia 👑') mpgBase = 30 + (confiancaAtual / 100) * 5;
   else if (funcao === 'Sexto Homem ⚡') mpgBase = 21 + (confiancaAtual / 100) * 4;
@@ -125,19 +163,28 @@ export function simularTemporadaAtual(
 
   const ganhouMvp = ovrAtual >= (76 + reputacaoClube * 2) && desempenhoClutch >= 72 && Math.random() < 0.20; 
 
-  // 8. Calendário e Playoffs
+  // 8. POTENCIAL DINÂMICO (Romper o teto ou flopar com base nas temporadas)
+  if (desempenhoClutch >= 78 && confiancaAtual >= 80 && potencial === 'JogadorSolido' && Math.random() < 0.18) {
+    atleta.potencialSecreto = 'GeracaoUnica'; // Promovido a estrela!
+    potencial = 'GeracaoUnica';
+  } else if (confiancaAtual < 40 && mpg < 10 && potencial === 'JogadorSolido' && Math.random() < 0.25) {
+    atleta.potencialSecreto = 'RiscoFlop'; // Rebaixado a risco de flop
+    potencial = 'RiscoFlop';
+  }
+
+  // 9. Calendário e Playoffs
   const { jogosDisputados, chegouAosPlayoffs } = calcularJogosDaTemporada(nomeLiga, ovrAtual, false, quimicaCalculada);
   const ganhouTitulo = ovrAtual >= (66 + reputacaoClube * 2) && chegouAosPlayoffs && Math.random() < ((ovrAtual >= 80 ? 0.22 : 0.10) * (0.5 + fatorQuimica * 0.7));
 
-  // 9. Confiança do Treinador
+  // 10. Confiança do Treinador
   let varConfianca = 2;
   if (desempenhoClutch >= 68) varConfianca += 3;
   if (mpg < 10) varConfianca -= 4;
   const confiancaCalculada = Math.min(100, Math.max(15, confiancaAtual + varConfianca));
 
-  // 10. Lesões Graves vs Lesões Leves (Possibilidade de Flopar por Lesão)
+  // 11. Lesões
   let jogosEfetivos = jogosDisputados;
-  const chanceLesaoGrave = 0.05; // 5% de chance de lesão devastadora na temporada
+  const chanceLesaoGrave = 0.05;
   const sofreuLesaoGrave = Math.random() < chanceLesaoGrave;
   const sofreuLesaoComum = !sofreuLesaoGrave && Math.random() < (idadeAtual > 30 ? 0.16 : 0.08);
 
@@ -145,8 +192,8 @@ export function simularTemporadaAtual(
   let perdaOvrLesao = 0;
 
   if (sofreuLesaoGrave) {
-    jogosEfetivos = Math.max(5, Math.floor(jogosDisputados * 0.25)); // Perde 75% dos jogos da época
-    perdaOvrLesao = Math.floor(Math.random() * 3) + 2; // Perde de 2 a 4 de OVR permanentemente
+    jogosEfetivos = Math.max(5, Math.floor(jogosDisputados * 0.25));
+    perdaOvrLesao = Math.floor(Math.random() * 3) + 2;
     statusLesao = 'Lesão Grave 🩹';
   } else if (sofreuLesaoComum) {
     const jogosPerdidos = Math.floor(Math.random() * 18) + 6;
@@ -154,7 +201,7 @@ export function simularTemporadaAtual(
     statusLesao = 'Lesionado 🏥';
   }
 
-  // 11. Médias de Estatísticas Proporcionais aos Minutos
+  // 12. Médias
   const fatorMinutos = mpg / 36;
   const fatorRendimentoOvr = Math.max(0, (ovrAtual - 52) / 40);
   const rendimentoAjustadoLiga = fatorRendimentoOvr / (fatorDificuldadeLiga * 0.88);
@@ -190,6 +237,16 @@ export function simularTemporadaAtual(
     else if (chegouAosPlayoffs) statusTemporada = 'Playoffs 🏀';
   }
 
+  // GERAR MANCHETE DA IMPRENSA DA ÉPOCA
+  const noticiaImprensa = gerarMancheteImprensa(
+    atleta.nome || 'O Atleta',
+    ovrAtual,
+    statusTemporada,
+    desempenhoClutch,
+    mpg,
+    funcao
+  );
+
   const novaTemporada: TemporadaHistorico = {
     idade: idadeAtual,
     clube: clubeAtual,
@@ -209,48 +266,53 @@ export function simularTemporadaAtual(
     rebotesTotais,
     assistenciasTotais,
     titulos: ganhouTitulo ? 1 : 0,
-    status: statusTemporada
+    status: statusTemporada,
+    noticiaImprensa
   };
 
-  // 12. EVOLUÇÃO PONDERADA PELO POTENCIAL E FATORES EXTERNOS (Dificulta atalhos fáceis)
+  // 13. CURVA DE OVR RECALIBRADA
   let alteracaoOvr = 0;
   const bonusGymRat = atleta.mentalidade === 'Fominha de Treino (Gym Rat)' ? 1 : 0;
 
   if (idadeAtual <= 21) {
     if (potencial === 'RiscoFlop') {
-      // Jogador com teto baixo evolui devagar (+0 a +2) e estabiliza rápido
-      alteracaoOvr = Math.random() < 0.6 ? 1 : 0;
+      alteracaoOvr = Math.random() < 0.5 ? 1 : 0;
     } else if (potencial === 'GeracaoUnica') {
-      // Estrela prodígio (+2 a +4)
       alteracaoOvr = Math.floor(Math.random() * 2) + 2 + bonusGymRat;
     } else {
-      // Jogador Sólido Padrão (+1 a +3)
-      alteracaoOvr = Math.floor(Math.random() * 2) + 1 + (Math.random() < 0.4 ? 1 : 0);
+      alteracaoOvr = Math.floor(Math.random() * 2) + 1 + (Math.random() < 0.5 ? 1 : 0);
     }
-  } else if (idadeAtual <= 26) {
-    if (potencial === 'RiscoFlop' || ovrAtual >= 72) {
-      // Bate no muro do teto (Dificuldade de evoluir além de 72-74)
-      alteracaoOvr = Math.random() < 0.35 ? 1 : 0;
+  } else if (idadeAtual <= 28) {
+    if (potencial === 'GeracaoUnica') {
+      if (ovrAtual >= 92) {
+        alteracaoOvr = Math.random() < 0.35 ? 1 : 0;
+      } else {
+        alteracaoOvr = Math.floor(Math.random() * 2) + 1 + (confiancaCalculada >= 70 ? 1 : 0);
+      }
+    } else if (potencial === 'JogadorSolido') {
+      if (ovrAtual >= 82) {
+        alteracaoOvr = Math.random() < 0.30 ? 1 : 0;
+      } else {
+        alteracaoOvr = Math.random() < 0.65 ? 1 : 2;
+      }
     } else {
-      alteracaoOvr = Math.random() < 0.6 ? 1 : 2;
+      alteracaoOvr = ovrAtual >= 70 ? (Math.random() < 0.2 ? 1 : 0) : (Math.random() < 0.5 ? 1 : 0);
     }
-  } else if (idadeAtual <= 30) {
-    if (ovrAtual >= 85) {
+  } else if (idadeAtual <= 31) {
+    if (ovrAtual >= 90) {
       alteracaoOvr = Math.random() < 0.20 ? 1 : 0;
     } else {
-      alteracaoOvr = Math.random() < 0.5 ? 1 : 0;
+      alteracaoOvr = Math.random() < 0.45 ? 1 : 0;
     }
   } else {
-    // Declínio
-    alteracaoOvr = -Math.floor(Math.random() * 3) - 1;
+    alteracaoOvr = -Math.floor(Math.random() * 2) - 1;
   }
 
-  // Desconta perda de lesão grave se tiver ocorrido
   alteracaoOvr -= perdaOvrLesao;
 
   const novoOvr = Math.min(99, Math.max(45, ovrAtual + alteracaoOvr));
 
-  // 13. Eventos
+  // 14. Eventos
   let eventoSorteado: TemplateEvento | undefined = undefined;
   if (idadeAtual < 36 && BANCO_DE_EVENTOS.length > 0 && Math.random() < 0.38) {
     const indexAleatorio = Math.floor(Math.random() * BANCO_DE_EVENTOS.length);

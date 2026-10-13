@@ -5,10 +5,21 @@ export interface Atleta {
   maoDominante: string;
   posicao: string;
   mentalidade: string;
-  potencialSecreto?: 'GeracaoUnica' | 'JogadorSolido' | 'RiscoFlop'; // Definição interna de teto
+  potencialSecreto?: 'GeracaoUnica' | 'JogadorSolido' | 'RiscoFlop';
 }
 
-export type FuncaoElenco = 'Promessa 🐣' | 'Sexto Homem ⚡' | 'Líder da Franquia 👑' | 'Veterano / Mentor 👴' | 'Reserva Aquece-Banco 🪑';
+export type FuncaoElenco = 
+  | 'Promessa 🐣' 
+  | 'Sexto Homem ⚡' 
+  | 'Líder da Franquia 👑' 
+  | 'Veterano / Mentor 👴' 
+  | 'Reserva Aquece-Banco 🪑';
+
+export interface NoticiaImprensa {
+  manchete: string;
+  veiculo: string;
+  tipo: 'sucesso' | 'alerta' | 'crise' | 'neutro';
+}
 
 export interface TemporadaHistorico {
   idade: number;
@@ -30,6 +41,7 @@ export interface TemporadaHistorico {
   assistenciasTotais: number;
   titulos: number;
   status?: string;
+  noticiaImprensa?: NoticiaImprensa;
 }
 
 export interface EventoAleatorio {
