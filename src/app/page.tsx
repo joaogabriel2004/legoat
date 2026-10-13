@@ -2,13 +2,12 @@
 
 import React, { useState } from 'react';
 import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira } from '@/src/types/basquete';
-import { simularTemporadaAtual, gerarOfertasTransferencia, calcularValorMercado, CLUBES_NACIONAIS } from '@/src/utils/simulador';
+import { simularTemporadaAtual, gerarOfertasTransferencia, calcularValorMercado, obterClubeInicial } from '@/src/utils/simulador';
 import FormularioIdentidade from '@/src/components/CriacaoAtleta/FormularioIdentidade';
 import SeletorNacionalidade from '@/src/components/CriacaoAtleta/SeletorNacionalidade';
 import SeletorPosicao from '@/src/components/CriacaoAtleta/SeletorPosicao';
 import TelaResumo from '@/src/components/ResumoCarreira/TelaResumo';
-
-import { rodarTestesDeBalanceamento } from '@/src/utils/testarSimulacao';
+import { rodarTestesDetalhado } from '@/src/utils/testarSimulacao';
 
 const CORES = {
   bgGeral: '#0a0c0c',
@@ -26,7 +25,9 @@ export default function Home() {
 
   const [idadeAtual, setIdadeAtual] = useState(16);
   const [clubeAtual, setClubeAtual] = useState('');
-  const [ovrAtual, setOvrAtual] = useState(68);
+  const [ovrAtual, setOvrAtual] = useState(60);
+  const [quimica, setQuimica] = useState(45);
+  const [confianca, setConfianca] = useState(60);
   const [historico, setHistorico] = useState<TemporadaHistorico[]>([]);
   
   const [totais, setTotais] = useState<TotaisCarreira>({
@@ -45,8 +46,10 @@ export default function Home() {
     if (!atleta.nome.trim()) return;
 
     setIdadeAtual(16);
-    setClubeAtual(CLUBES_NACIONAIS[Math.floor(Math.random() * CLUBES_NACIONAIS.length)]);
-    setOvrAtual(68);
+    setClubeAtual(obterClubeInicial());
+    setOvrAtual(60);
+    setQuimica(45);
+    setConfianca(60);
     setHistorico([]);
     setTotais({ titulos: 0, mvps: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
     setFasePrincipal('carreira');
@@ -54,7 +57,7 @@ export default function Home() {
   };
 
   const avancarTemporada = () => {
-    const { novaTemporada, novoOvr, eventoSorteado, aposentado } = simularTemporadaAtual(atleta, idadeAtual, clubeAtual, ovrAtual);
+    const { novaTemporada, novoOvr, novaQuimica, novaConfianca, eventoSorteado, aposentado } = simularTemporadaAtual(atleta, idadeAtual, clubeAtual, ovrAtual, quimica, confianca);
 
     if (aposentado) {
       setFaseSub('aposentado');
@@ -64,6 +67,8 @@ export default function Home() {
 
     setHistorico(prev => [novaTemporada, ...prev]);
     setOvrAtual(novoOvr);
+    setQuimica(novaQuimica);
+    setConfianca(novaConfianca);
 
     setTotais(prev => ({
       titulos: prev.titulos + novaTemporada.titulos,
@@ -80,8 +85,10 @@ export default function Home() {
         opcao1Texto: eventoSorteado.opcao1Texto,
         opcao2Texto: eventoSorteado.opcao2Texto,
         acaoOpcao1: () => {
-          const resultado = eventoSorteado.efeitoOpcao1(ovrAtual);
+          const resultado = eventoSorteado.efeitoOpcao1(ovrAtual, quimica, confianca);
           setOvrAtual(resultado.novoOvr);
+          setQuimica(resultado.novaQuimica);
+          setConfianca(resultado.novaConfianca);
           
           if (resultado.statusEspecial) {
             setHistorico(prev => [{ ...prev[0], status: resultado.statusEspecial }, ...prev.slice(1)]);
@@ -90,8 +97,10 @@ export default function Home() {
           fecharEventoEAbrirTransferencias();
         },
         acaoOpcao2: () => {
-          const resultado = eventoSorteado.efeitoOpcao2(ovrAtual);
+          const resultado = eventoSorteado.efeitoOpcao2(ovrAtual, quimica, confianca);
           setOvrAtual(resultado.novoOvr);
+          setQuimica(resultado.novaQuimica);
+          setConfianca(resultado.novaConfianca);
           alert(resultado.mensagem);
           fecharEventoEAbrirTransferencias();
         }
@@ -109,13 +118,16 @@ export default function Home() {
 
   const abrirJanelaTransferencias = () => {
     setIdadeAtual(prev => prev + 1);
-    // Usa o novo sistema de propostas inteligente baseado no OVR atual
     const ofertas = gerarOfertasTransferencia(ovrAtual, clubeAtual);
     setOfertasTransferencia(ofertas);
     setFaseSub('transferencia');
   };
 
   const selecionarNovoClube = (novoClube: string) => {
+    if (novoClube !== clubeAtual) {
+      setQuimica(40); // Perda substancial de química em time novo
+      setConfianca(ovrAtual >= 80 ? 75 : 60); // Confiança do novo técnico reseta em valor mediano
+    }
     setClubeAtual(novoClube);
     setFaseSub('carreira');
   };
@@ -128,16 +140,45 @@ export default function Home() {
     setTotais({ titulos: 0, mvps: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
   };
 
-  // Valor de mercado dinâmico para exibir na tela
   const valorMercado = calcularValorMercado(ovrAtual, idadeAtual);
 
   return (
     <main style={{
       height: '100vh', background: CORES.bgGeral, color: '#fff',
       fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif', display: 'flex',
-      flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', boxSizing: 'border-box'
+      flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', boxSizing: 'border-box',
+      position: 'relative'
     }}>
       
+      <button 
+        onClick={() => {
+          console.clear();
+          rodarTestesDetalhado(3);
+        }}
+        style={{
+          position: 'absolute',
+          top: '1rem',
+          right: '1.5rem',
+          zIndex: 999,
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          color: '#ffffff',
+          fontWeight: '900',
+          padding: '0.5rem 1rem',
+          borderRadius: '8px',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '0.75rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem'
+        }}
+      >
+        🧪 Rodar Teste no Console (F12)
+      </button>
+
       <style jsx global>{`
         ::-webkit-scrollbar { width: 6px; background: #101313; }
         ::-webkit-scrollbar-thumb { background: #2e3737; border-radius: 3px; }
@@ -171,6 +212,8 @@ export default function Home() {
           idadeAtual={idadeAtual}
           clubeAtual={clubeAtual}
           ovrAtual={ovrAtual}
+          quimica={quimica}
+          confianca={confianca}
           valorMercado={valorMercado}
           historico={historico} 
           totais={totais} 
@@ -182,11 +225,6 @@ export default function Home() {
           onReset={resetForm} 
         />
       )}
-
-      <button onClick={() => rodarTestesDeBalanceamento()} style={{ background: '#34d399', color: '#000', padding: '10px' }}>
-        🧪 Executar Teste de Simulação (Console)
-      </button>
-
     </main>
   );
 }
