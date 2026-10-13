@@ -1,66 +1,121 @@
 import React from 'react';
-import { Atleta } from '@/src/types/basquete';
+import { Atleta, ArquetipoAtleta } from '@/src/types/basquete';
 
 interface Props {
   atleta: Atleta;
   onChange: (dados: Partial<Atleta>) => void;
 }
 
-const CORES = {
-  bgCard: '#101313',
-  bgInput: '#191d1d',
-  borda: '#2e3737',
-  textoPrincipal: '#ffffff',
-  textoSecundario: '#8fa89b',
-  destaque: '#ff8800',
-  bgGeral: '#0a0c0c',
-};
-
-const POSICOES_BASQUETE = [
-  { id: 'Armador (PG)', label: 'Armador (PG)' },
-  { id: 'Ala-Armador (SG)', label: 'Ala-Armador (SG)' },
-  { id: 'Ala (SF)', label: 'Ala (SF)' },
-  { id: 'Ala-Pivô (PF)', label: 'Ala-Pivô (PF)' },
-  { id: 'Pivô (C)', label: 'Pivô (C)' },
+const ARQUETIPOS: { id: ArquetipoAtleta; nome: string; tag: string; desc: string; icone: string }[] = [
+  { id: 'Pass-First Maestro 🧠', nome: 'Maestro do Passe', tag: '+APG / Visão', desc: 'Prioriza assistências e ritmo ofensivo da equipe.', icone: '🧠' },
+  { id: 'Cestinha Slasher ⚡', nome: 'Cestinha Infiltrador', tag: '+PPG / Cestas', desc: 'Agressivo no ataque, pontuando no garrafão e no percurso.', icone: '⚡' },
+  { id: '3&D Especialista 🎯', nome: '3&D Especialista', tag: '+3PM / Defesa', desc: 'Especialista em bola de 3 e marcação perimetral.', icone: '🎯' },
+  { id: 'Protetor de Garrafão / Rim Protector 🛡️', nome: 'Protetor de Garrafão', tag: '+RPG / Toco', desc: 'Dominante no garrafão, rebotes e bloqueios defensivos.', icone: '🛡️' },
 ];
 
 export default function SeletorPosicao({ atleta, onChange }: Props) {
   return (
     <div style={{
-      background: CORES.bgCard, border: `1px solid ${CORES.borda}`, borderRadius: '4px', padding: '1.25rem',
-      display: 'flex', flexDirection: 'column', gap: '1rem'
+      background: '#101313',
+      border: '1px solid #222828',
+      borderRadius: '16px',
+      padding: '1.25rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1.2rem',
+      height: '100%',
+      boxSizing: 'border-box'
     }}>
-      <h2 style={{
-        fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase',
-        letterSpacing: '0.1em', color: CORES.textoSecundario, marginBottom: '0'
-      }}>Posição em Quadra</h2>
+      <h3 style={{ fontSize: '0.75rem', fontWeight: '900', color: '#ff8800', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+        2. Posição e Arquétipo
+      </h3>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {POSICOES_BASQUETE.map(pos => {
-          const selecionada = atleta.posicao === pos.id;
-          return (
-            <div
-              key={pos.id}
-              onClick={() => onChange({ posicao: pos.id })}
-              style={{
-                width: '100%', background: selecionada ? '#161b1b' :CORES.bgInput, border: `1px solid ${selecionada ? CORES.destaque : CORES.borda}`,
-                borderRadius: '4px', padding: '1.5rem 1.25rem', display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', cursor: 'pointer', boxSizing: 'border-box', transition: 'all 0.1s'
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, fontWeight: '700', fontSize: '1rem', color: selecionada ? CORES.destaque : CORES.textoPrincipal }}>
-                  {pos.label}
-                </p>
-              </div>
-              {selecionada && <span style={{
-                background: CORES.destaque, color: CORES.bgGeral, padding: '0.2rem 0.6rem',
-                borderRadius: '4px', textTransform: 'uppercase', fontWeight: '900', fontSize: '0.6rem'
-              }}>SELECIONADO</span>}
-            </div>
-          );
-        })}
+      {/* SELEÇÃO DE POSIÇÃO PRINCIPAL */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <label style={{ fontSize: '0.72rem', color: '#8fa89b', fontWeight: '800', textTransform: 'uppercase' }}>
+          Posição em Quadra:
+        </label>
+        <div style={{ position: 'relative' }}>
+          <select 
+            value={atleta.posicao} 
+            onChange={e => onChange({ posicao: e.target.value })}
+            style={{
+              width: '100%',
+              background: '#161919',
+              border: '1px solid #222828',
+              color: '#fff',
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              fontSize: '0.88rem',
+              fontWeight: 'bold',
+              appearance: 'none',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="Armador (PG)">🏀 Armador (PG)</option>
+            <option value="Ala-Armador (SG)">🎯 Ala-Armador (SG)</option>
+            <option value="Ala (SF)">⚡ Ala (SF)</option>
+            <option value="Ala-Pivô (PF)">💪 Ala-Pivô (PF)</option>
+            <option value="Pivô (C)">🛡️ Pivô (C)</option>
+          </select>
+          <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#8fa89b', fontSize: '0.75rem' }}>▼</span>
+        </div>
       </div>
+
+      {/* SELEÇÃO DE ARQUÉTIPOS EM CARDS MODERNOS */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minHeight: 0 }}>
+        <label style={{ fontSize: '0.72rem', color: '#8fa89b', fontWeight: '800', textTransform: 'uppercase' }}>
+          Estilo / Arquétipo de Jogo:
+        </label>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', flex: 1 }}>
+          {ARQUETIPOS.map(arq => {
+            const selecionado = (atleta.arquetipo || 'Pass-First Maestro 🧠') === arq.id;
+            return (
+              <button
+                key={arq.id}
+                type="button"
+                onClick={() => onChange({ arquetipo: arq.id })}
+                style={{
+                  background: selecionado 
+                    ? 'linear-gradient(135deg, rgba(255,136,0,0.15) 0%, rgba(255,136,0,0.05) 100%)' 
+                    : '#161919',
+                  color: '#fff',
+                  border: `1.5px solid ${selecionado ? '#ff8800' : '#222828'}`,
+                  borderRadius: '10px',
+                  padding: '0.85rem 0.75rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: selecionado ? '0 4px 12px rgba(255,136,0,0.15)' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontSize: '1.1rem' }}>{arq.icone}</span>
+                  <span style={{ fontSize: '0.58rem', fontWeight: '900', color: selecionado ? '#ff8800' : '#8fa89b', background: '#0a0c0c', padding: '0.15rem 0.4rem', borderRadius: '4px', border: `1px solid ${selecionado ? 'rgba(255,136,0,0.3)' : '#222828'}` }}>
+                    {arq.tag}
+                  </span>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: '800', color: selecionado ? '#ff8800' : '#fff' }}>
+                    {arq.nome}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: '#8fa89b', lineHeight: '1.2', marginTop: '0.2rem' }}>
+                    {arq.desc}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
     </div>
   );
 }

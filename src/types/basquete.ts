@@ -1,5 +1,11 @@
 export type FocoTreino = 'arremesso' | 'iq' | 'fisico' | 'equilibrado';
 
+export type ArquetipoAtleta = 
+  | 'Pass-First Maestro 🧠' 
+  | 'Cestinha Slasher ⚡' 
+  | '3&D Especialista 🎯' 
+  | 'Protetor de Garrafão / Rim Protector 🛡️';
+
 export interface Atleta {
   nome: string;
   numero: string;
@@ -7,6 +13,7 @@ export interface Atleta {
   maoDominante: string;
   posicao: string;
   mentalidade: string;
+  arquetipo?: ArquetipoAtleta;
   potencialSecreto?: 'GeracaoUnica' | 'JogadorSolido' | 'RiscoFlop';
   focoTreinoAtual?: FocoTreino;
 }
@@ -36,17 +43,15 @@ export interface EstatisticasFase {
 }
 
 export interface TorneioSelecao {
-  nomeTorneio: string; // Ex: "Jogos Olímpicos 🥇" ou "Copa do Mundo FIBA 🏀"
-  posicaoFinal: string; // Ex: "Medalha de Ouro 🥇", "Medalha de Prata 🥈", "Quarto Lugar"
+  nomeTorneio: string;
+  posicaoFinal: string;
   ppgSelecao: number;
 }
 
-export interface RivalidadeData {
+export interface ClássicoRivalidade {
   nomeRival: string;
-  ovrRival: number;
-  clubeRival: string;
-  vitoriasJogador: number;
-  vitoriasRival: number;
+  resultadoJogo: 'Vitoria 🏆' | 'Derrota ❌';
+  destaqueAtleta: string;
 }
 
 export interface TemporadaHistorico {
@@ -65,6 +70,7 @@ export interface TemporadaHistorico {
   tpm: number;
   tov: number;
   desempenhoClutch: number;
+  nivelFadiga: number; // 0 a 100%
   pontosTotais: number;
   rebotesTotais: number;
   assistenciasTotais: number;
@@ -74,6 +80,7 @@ export interface TemporadaHistorico {
   faseRegular: EstatisticasFase;
   playoffs?: EstatisticasFase & { resultadoCampanha: string };
   torneioSelecao?: TorneioSelecao;
+  classicoRivalidade?: ClássicoRivalidade;
   premiacoesIndividuais: string[];
 }
 
@@ -96,8 +103,8 @@ export interface EventoAleatorio {
 export interface TotaisCarreira {
   titulos: number;
   mvps: number;
+  dpoy: number;
   jogosTotais: number;
   pontosTotais: number;
   assistenciasTotais: number;
-  medalhasSelecao?: number;
 }

@@ -1,26 +1,19 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira } from '@/src/types/basquete';
+import { Atleta, TemporadaHistorico, EventoAleatorio, TotaisCarreira, FocoTreino } from '@/src/types/basquete';
 import { simularTemporadaAtual, gerarOfertasTransferencia, calcularValorMercado, obterClubeInicial } from '@/src/utils/simulador';
 import FormularioIdentidade from '@/src/components/CriacaoAtleta/FormularioIdentidade';
 import SeletorNacionalidade from '@/src/components/CriacaoAtleta/SeletorNacionalidade';
 import SeletorPosicao from '@/src/components/CriacaoAtleta/SeletorPosicao';
 import TelaResumo from '@/src/components/ResumoCarreira/TelaResumo';
-import { rodarTestesDetalhado } from '@/src/utils/testarSimulacao';
-
-const CORES = {
-  bgGeral: '#0a0c0c',
-  destaque: '#ff8800',
-  bgGeralEscuro: '#070908',
-};
 
 export default function Home() {
   const [fasePrincipal, setFasePrincipal] = useState<'criacao' | 'carreira'>('criacao');
   const [faseSub, setFaseSub] = useState<'carreira' | 'evento' | 'transferencia' | 'aposentado'>('carreira');
 
   const [atleta, setAtleta] = useState<Atleta>({
-    nome: '', numero: '8', nacionalidade: 'Brasil', maoDominante: 'Destro', posicao: 'Armador (PG)', mentalidade: 'Fominha de Treino (Gym Rat)'
+    nome: '', numero: '8', nacionalidade: 'Brasil', maoDominante: 'Destro', posicao: 'Armador (PG)', arquetipo: 'Pass-First Maestro 🧠', mentalidade: 'Fominha de Treino (Gym Rat)', focoTreinoAtual: 'equilibrado'
   });
 
   const [idadeAtual, setIdadeAtual] = useState(16);
@@ -31,7 +24,7 @@ export default function Home() {
   const [historico, setHistorico] = useState<TemporadaHistorico[]>([]);
   
   const [totais, setTotais] = useState<TotaisCarreira>({
-    titulos: 0, mvps: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0
+    titulos: 0, mvps: 0, dpoy: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0
   });
 
   const [eventoAtivo, setEventoAtivo] = useState<EventoAleatorio | null>(null);
@@ -39,6 +32,10 @@ export default function Home() {
 
   const handleAtualizarAtleta = (dados: Partial<Atleta>) => {
     setAtleta(prev => ({ ...prev, ...dados }));
+  };
+
+  const handleMudarFocoTreino = (novoFoco: FocoTreino) => {
+    setAtleta(prev => ({ ...prev, focoTreinoAtual: novoFoco }));
   };
 
   const iniciarCarreira = (e: React.FormEvent) => {
@@ -51,13 +48,17 @@ export default function Home() {
     setQuimica(45);
     setConfianca(60);
     setHistorico([]);
-    setTotais({ titulos: 0, mvps: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
+    setTotais({ titulos: 0, mvps: 0, dpoy: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
     setFasePrincipal('carreira');
     setFaseSub('carreira');
   };
 
   const avancarTemporada = () => {
-    const { novaTemporada, novoOvr, novaQuimica, novaConfianca, eventoSorteado, aposentado } = simularTemporadaAtual(atleta, idadeAtual, clubeAtual, ovrAtual, quimica, confianca);
+    const ovrTemporadaAnterior = historico[0]?.ovr;
+    
+    const { novaTemporada, novoOvr, novaQuimica, novaConfianca, eventoSorteado, aposentado } = simularTemporadaAtual(
+      atleta, idadeAtual, clubeAtual, ovrAtual, quimica, confianca, atleta.focoTreinoAtual, ovrTemporadaAnterior
+    );
 
     if (aposentado) {
       setFaseSub('aposentado');
@@ -73,6 +74,7 @@ export default function Home() {
     setTotais(prev => ({
       titulos: prev.titulos + novaTemporada.titulos,
       mvps: prev.mvps + (novaTemporada.status?.includes('MVP') ? 1 : 0),
+      dpoy: prev.dpoy + (novaTemporada.premiacoesIndividuais.includes('Defensor do Ano (DPOY) 🛡️') ? 1 : 0),
       jogosTotais: prev.jogosTotais + novaTemporada.jogos,
       pontosTotais: prev.pontosTotais + novaTemporada.pontosTotais,
       assistenciasTotais: prev.assistenciasTotais + novaTemporada.assistenciasTotais
@@ -85,7 +87,7 @@ export default function Home() {
         opcao1Texto: eventoSorteado.opcao1Texto,
         opcao2Texto: eventoSorteado.opcao2Texto,
         acaoOpcao1: () => {
-          const resultado = eventoSorteado.efeitoOpcao1(novoOvr, quimica, confianca);
+          const resultado = eventoSorteado.efeitoOpcao1(novoOvr, novaQuimica, novaConfianca);
           setOvrAtual(resultado.novoOvr);
           setQuimica(resultado.novaQuimica);
           setConfianca(resultado.novaConfianca);
@@ -97,7 +99,7 @@ export default function Home() {
           fecharEventoEAbrirTransferencias();
         },
         acaoOpcao2: () => {
-          const resultado = eventoSorteado.efeitoOpcao2(novoOvr, quimica, confianca);
+          const resultado = eventoSorteado.efeitoOpcao2(novoOvr, novaQuimica, novaConfianca);
           setOvrAtual(resultado.novoOvr);
           setQuimica(resultado.novaQuimica);
           setConfianca(resultado.novaConfianca);
@@ -125,8 +127,8 @@ export default function Home() {
 
   const selecionarNovoClube = (novoClube: string) => {
     if (novoClube !== clubeAtual) {
-      setQuimica(40); // Perda substancial de química em time novo
-      setConfianca(ovrAtual >= 80 ? 75 : 60); // Confiança do novo técnico reseta em valor mediano
+      setQuimica(40);
+      setConfianca(ovrAtual >= 80 ? 75 : 60);
     }
     setClubeAtual(novoClube);
     setFaseSub('carreira');
@@ -135,75 +137,45 @@ export default function Home() {
   const resetForm = () => {
     setFasePrincipal('criacao');
     setFaseSub('carreira');
-    setAtleta({ nome: '', numero: '8', nacionalidade: 'Brasil', maoDominante: 'Destro', posicao: 'Armador (PG)', mentalidade: 'Fominha de Treino (Gym Rat)' });
+    setAtleta({ nome: '', numero: '8', nacionalidade: 'Brasil', maoDominante: 'Destro', posicao: 'Armador (PG)', arquetipo: 'Pass-First Maestro 🧠', mentalidade: 'Fominha de Treino (Gym Rat)', focoTreinoAtual: 'equilibrado' });
     setHistorico([]);
-    setTotais({ titulos: 0, mvps: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
+    setTotais({ titulos: 0, mvps: 0, dpoy: 0, jogosTotais: 0, pontosTotais: 0, assistenciasTotais: 0 });
   };
 
   const valorMercado = calcularValorMercado(ovrAtual, idadeAtual);
 
   return (
-    <main style={{
-      height: '100vh', background: CORES.bgGeral, color: '#fff',
-      fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif', display: 'flex',
-      flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', boxSizing: 'border-box',
-      position: 'relative'
-    }}>
-      
-      <button 
-        onClick={() => {
-          console.clear();
-          rodarTestesDetalhado(3);
-        }}
-        style={{
-          position: 'absolute',
-          top: '1rem',
-          right: '1.5rem',
-          zIndex: 999,
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          color: '#ffffff',
-          fontWeight: '900',
-          padding: '0.5rem 1rem',
-          borderRadius: '8px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '0.75rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.4rem'
-        }}
-      >
-        🧪 Rodar Teste no Console (F12)
-      </button>
-
-      <style jsx global>{`
-        ::-webkit-scrollbar { width: 6px; background: #101313; }
-        ::-webkit-scrollbar-thumb { background: #2e3737; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ff8800; }
-      `}</style>
-
+    <main style={{ height: '100vh', background: '#0a0c0c', color: '#fff', fontFamily: 'Helvetica Neue, sans-serif', display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', boxSizing: 'border-box' }}>
       {fasePrincipal === 'criacao' ? (
-        <form onSubmit={iniciarCarreira} style={{
-          display: 'flex', flexDirection: 'column', gap: '1.5rem',
-          flex: 1, maxWidth: '1200px', margin: '0 auto', width: '100%', minHeight: 0
-        }}>
+        <form onSubmit={iniciarCarreira} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, maxWidth: '1200px', margin: '0 auto', width: '100%', minHeight: 0 }}>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 2fr', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+          {/* GRID TRIPLO DE CRIAÇÃO */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.3fr', gap: '1.25rem', flex: 1, minHeight: 0 }}>
             <FormularioIdentidade atleta={atleta} onChange={handleAtualizarAtleta} />
             <SeletorNacionalidade atleta={atleta} onChange={handleAtualizarAtleta} />
             <SeletorPosicao atleta={atleta} onChange={handleAtualizarAtleta} />
           </div>
 
-          <button type="submit" style={{
-            width: '100%', background: CORES.destaque, color: CORES.bgGeralEscuro,
-            fontWeight: '900', padding: '1.15rem', borderRadius: '4px', border: 'none',
-            cursor: 'pointer', fontSize: '1rem', textTransform: 'uppercase',
-            letterSpacing: '0.05em', fontFamily: 'inherit', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
-          }}>
-            Iniciar Carreira 🚀
+          {/* BOTÃO PRINCIPAL DE INICIAR */}
+          <button 
+            type="submit" 
+            style={{ 
+              width: '100%', 
+              background: 'linear-gradient(to right, #ff8800, #f97316)', 
+              color: '#070908', 
+              fontWeight: '900', 
+              padding: '1.1rem', 
+              borderRadius: '10px', 
+              border: 'none', 
+              cursor: 'pointer', 
+              fontSize: '1rem', 
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              boxShadow: '0 8px 20px -5px rgba(255, 136, 0, 0.4)',
+              flexShrink: 0
+            }}
+          >
+            🚀 INICIAR CARREIRA PROFISSIONAL
           </button>
         </form>
       ) : (
@@ -222,7 +194,8 @@ export default function Home() {
           ofertasTransferencia={ofertasTransferencia}
           onAvancarTemporada={avancarTemporada}
           onSelecionarClube={selecionarNovoClube}
-          onReset={resetForm} 
+          onReset={resetForm}
+          onMudarFocoTreino={handleMudarFocoTreino}
         />
       )}
     </main>
